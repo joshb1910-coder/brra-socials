@@ -206,10 +206,19 @@ if ( defined( 'BRRA_DEMO' ) && BRRA_DEMO ) {
 }
 
 update_option( 'pmpro_currency', 'GBP' );
-update_option( 'pmpro_gateway', 'check' );
+// Online card payment only (Stripe). Bank transfer and cash are handled offline by the Membership Secretary.
+// The test site has no Stripe keys, so it uses a stand-in "test payment" that takes no money.
 update_option( 'pmpro_gateway_environment', 'sandbox' );
-update_option( 'pmpro_check_gateway_label', 'bank transfer' );
-update_option( 'pmpro_instructions', "Please pay by bank transfer to the Bury & Rochdale Referees' Association, using your name as the reference. [Bank details to add.] Your membership is confirmed when the Membership Secretary sees the payment. In the live site, card, Apple Pay and Google Pay go through Stripe." );
+if ( defined( 'BRRA_DEMO' ) && BRRA_DEMO ) {
+	update_option( 'pmpro_gateway', 'check' );
+	update_option( 'pmpro_check_gateway_label', 'test payment' );
+	update_option( 'pmpro_instructions', 'This is the test site, so no money is taken. On the real site you pay here by card, Apple Pay or Google Pay.' );
+} else {
+	update_option( 'pmpro_gateway', 'stripe' );
+	// Stripe's own payment page: card, Apple Pay and Google Pay with no extra setup on this site.
+	update_option( 'pmpro_stripe_payment_flow', 'checkout' );
+	delete_option( 'pmpro_instructions' );
+}
 update_option( 'pmpro_hide_footer_link', 1 );
 update_option( 'pmpro_wizard_step', 'done' );
 update_option( 'pmpro_filterqueries', 1 );
