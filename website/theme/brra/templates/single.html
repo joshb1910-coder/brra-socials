@@ -1,0 +1,46 @@
+<!-- wp:template-part {"slug":"header","tagName":"div"} /-->
+<!-- wp:group {"backgroundColor":"navy","textColor":"white","className":"brra-on-dark","layout":{"type":"constrained"}} -->
+<div class="wp-block-group brra-on-dark has-white-color has-navy-background-color has-text-color has-background">
+<!-- wp:group {"style":{"spacing":{"padding":{"top":"64px","bottom":"56px"},"blockGap":"16px"}},"layout":{"type":"default"}} -->
+<div class="wp-block-group" style="padding-top:64px;padding-bottom:56px">
+<!-- wp:group {"style":{"spacing":{"blockGap":"8px"},"typography":{"fontSize":"14px","fontWeight":"700"}},"textColor":"gold","layout":{"type":"flex","flexWrap":"wrap"}} -->
+<div class="wp-block-group has-gold-color has-text-color" style="font-size:14px;font-weight:700">
+<!-- wp:post-terms {"term":"category","separator":" · ","style":{"elements":{"link":{"color":{"text":"var:preset|color|gold"}}}}} /-->
+<!-- wp:post-date {"format":"j F Y","style":{"elements":{"link":{"color":{"text":"var:preset|color|gold"}}}},"textColor":"gold"} /-->
+</div>
+<!-- /wp:group -->
+<!-- wp:post-title {"level":1,"style":{"typography":{"fontSize":"clamp(30px, 4vw, 48px)"}}} /-->
+</div>
+<!-- /wp:group -->
+</div>
+<!-- /wp:group -->
+<!-- wp:group {"tagName":"main","style":{"spacing":{"padding":{"top":"48px","bottom":"80px"}}},"layout":{"type":"constrained"}} -->
+<main class="wp-block-group" style="padding-top:48px;padding-bottom:80px">
+<!-- wp:post-featured-image {"style":{"border":{"radius":"8px"}}} /-->
+<!-- wp:post-content {"layout":{"type":"constrained"}} /-->
+<!-- wp:separator {"style":{"spacing":{"margin":{"top":"48px","bottom":"24px"}}}} -->
+<hr class="wp-block-separator has-alpha-channel-opacity" style="margin-top:48px;margin-bottom:24px"/>
+<!-- /wp:separator -->
+<!-- wp:post-navigation-link {"type":"previous","label":"Previous post","showTitle":true,"linkLabel":true} /-->
+<!-- wp:post-navigation-link {"label":"Next post","showTitle":true,"linkLabel":true} /-->
+</main>
+<!-- /wp:group -->
+<!-- wp:group {"backgroundColor":"mist","layout":{"type":"constrained"}} -->
+<div class="wp-block-group has-mist-background-color has-background">
+<!-- wp:group {"align":"wide","style":{"spacing":{"padding":{"top":"64px","bottom":"72px"},"blockGap":"28px"}},"layout":{"type":"default"}} -->
+<div class="wp-block-group alignwide" style="padding-top:64px;padding-bottom:72px">
+<!-- wp:heading {"style":{"typography":{"fontSize":"32px"}}} -->
+<h2 class="wp-block-heading" style="font-size:32px">More news</h2>
+<!-- /wp:heading -->
+<!-- wp:query {"queryId":2,"query":{"perPage":3,"pages":0,"offset":0,"postType":"post","order":"desc","orderBy":"date","inherit":false,"exclude":[]},"layout":{"type":"default"}} -->
+<div class="wp-block-query">
+<!-- wp:post-template {"layout":{"type":"grid","columnCount":3,"minimumColumnWidth":"280px"},"style":{"spacing":{"blockGap":"24px"}}} -->
+<!-- wp:pattern {"slug":"brra/post-card"} /-->
+<!-- /wp:post-template -->
+</div>
+<!-- /wp:query -->
+</div>
+<!-- /wp:group -->
+</div>
+<!-- /wp:group -->
+<!-- wp:template-part {"slug":"footer","tagName":"div"} /-->

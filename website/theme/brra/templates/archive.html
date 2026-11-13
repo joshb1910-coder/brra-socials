@@ -1,0 +1,41 @@
+<!-- wp:template-part {"slug":"header","tagName":"div"} /-->
+<!-- wp:group {"backgroundColor":"navy","textColor":"white","className":"brra-on-dark","layout":{"type":"constrained"}} -->
+<div class="wp-block-group brra-on-dark has-white-color has-navy-background-color has-text-color has-background">
+<!-- wp:group {"align":"wide","style":{"spacing":{"padding":{"top":"70px","bottom":"60px"},"blockGap":"16px"}},"layout":{"type":"default"}} -->
+<div class="wp-block-group alignwide" style="padding-top:70px;padding-bottom:60px">
+<!-- wp:paragraph {"className":"is-style-eyebrow"} -->
+<p class="is-style-eyebrow">News</p>
+<!-- /wp:paragraph -->
+<!-- wp:query-title {"type":"archive","showPrefix":false,"level":1,"style":{"typography":{"fontSize":"clamp(34px, 4.6vw, 54px)"}}} /-->
+<!-- wp:paragraph {"textColor":"cloud","fontSize":"large"} -->
+<p class="has-cloud-color has-text-color has-large-font-size">From the Bury &amp; Rochdale RA.</p>
+<!-- /wp:paragraph -->
+</div>
+<!-- /wp:group -->
+</div>
+<!-- /wp:group -->
+<!-- wp:group {"tagName":"main","style":{"spacing":{"padding":{"top":"48px","bottom":"90px"},"blockGap":"28px"}},"layout":{"type":"constrained"}} -->
+<main class="wp-block-group" style="padding-top:48px;padding-bottom:90px">
+<!-- wp:group {"align":"wide","layout":{"type":"default"}} -->
+<div class="wp-block-group alignwide"><!-- wp:pattern {"slug":"brra/news-filter"} /--></div>
+<!-- /wp:group -->
+<!-- wp:query {"queryId":1,"query":{"perPage":9,"pages":0,"offset":0,"postType":"post","order":"desc","orderBy":"date","inherit":true},"align":"wide","layout":{"type":"default"}} -->
+<div class="wp-block-query alignwide">
+<!-- wp:post-template {"layout":{"type":"grid","minimumColumnWidth":"300px"},"style":{"spacing":{"blockGap":"24px"}}} -->
+<!-- wp:pattern {"slug":"brra/post-card"} /-->
+<!-- /wp:post-template -->
+<!-- wp:query-pagination {"paginationArrow":"arrow","layout":{"type":"flex","justifyContent":"center"},"style":{"spacing":{"margin":{"top":"40px"}}}} -->
+<!-- wp:query-pagination-previous {"label":"Newer"} /-->
+<!-- wp:query-pagination-numbers /-->
+<!-- wp:query-pagination-next {"label":"Older"} /-->
+<!-- /wp:query-pagination -->
+<!-- wp:query-no-results -->
+<!-- wp:paragraph -->
+<p>No posts here yet.</p>
+<!-- /wp:paragraph -->
+<!-- /wp:query-no-results -->
+</div>
+<!-- /wp:query -->
+</main>
+<!-- /wp:group -->
+<!-- wp:template-part {"slug":"footer","tagName":"div"} /-->
