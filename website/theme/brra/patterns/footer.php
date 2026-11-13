@@ -39,10 +39,10 @@
 <!-- wp:column -->
 <div class="wp-block-column">
 <!-- wp:paragraph {"className":"brra-footer__head"} -->
-<p class="brra-footer__head">DOCUMENTS</p>
+<p class="brra-footer__head">MEMBERS</p>
 <!-- /wp:paragraph -->
 <!-- wp:paragraph -->
-<p><a href="<?php echo esc_url( home_url( '/documents/' ) ); ?>">Rules 2026</a><br><a href="<?php echo esc_url( home_url( '/documents/' ) ); ?>">Privacy Notice</a><br><a href="<?php echo esc_url( home_url( '/documents/' ) ); ?>">Data Protection Policy</a></p>
+<p><a href="<?php echo esc_url( home_url( '/membership/' ) ); ?>">Join or renew</a><br><a href="<?php echo esc_url( home_url( '/my-membership/' ) ); ?>">My Membership</a><br><a href="<?php echo esc_url( home_url( '/privacy-notice/' ) ); ?>">Privacy notice</a></p>
 <!-- /wp:paragraph -->
 </div>
 <!-- /wp:column -->

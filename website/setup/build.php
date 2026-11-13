@@ -134,11 +134,8 @@ $brra_pages['contact']   = brra_build_page(
 	'Contact us',
 	"<!-- wp:paragraph -->\n<p>Email us at <a href=\"mailto:mail@buryrefs.org.uk\">mail@buryrefs.org.uk</a> and we'll get back to you within 72 hours.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph -->\n<p>Or come and find us at a Development Session: first Thursday of the month, doors 7.00pm, at St Mary's Social Club, Pine Street, Radcliffe, M26 2WQ.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph -->\n<p>We're also on <a href=\"https://www.instagram.com/buryreferees/\">Instagram</a>, <a href=\"https://www.facebook.com/profile.php?id=61565202158021\">Facebook</a> and <a href=\"https://twitter.com/BuryReferees\">X</a>.</p>\n<!-- /wp:paragraph -->"
 );
-$brra_pages['documents'] = brra_build_page(
-	'documents',
-	'Documents',
-	"<!-- wp:paragraph -->\n<p>Our rules and policies. [The PDFs will be uploaded here: Rules 2026, Privacy Notice, Data Protection Policy and the membership application form.]</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:list -->\n<ul class=\"wp-block-list\"><!-- wp:list-item -->\n<li>Rules 2026</li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>Privacy Notice</li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>Data Protection Policy</li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>Membership application form</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list -->"
-);
+$brra_pages['privacy-notice'] = brra_build_page( 'privacy-notice', 'Privacy notice' );
+update_option( 'wp_page_for_privacy_policy', $brra_pages['privacy-notice'] );
 
 update_option( 'show_on_front', 'page' );
 update_option( 'page_on_front', $brra_pages['home'] );
@@ -220,6 +217,29 @@ if ( defined( 'BRRA_DEMO' ) && BRRA_DEMO ) {
 	delete_option( 'pmpro_instructions' );
 }
 update_option( 'pmpro_hide_footer_link', 1 );
+// Member emails in the RA's own voice. The renewal reminder goes out 30 days before 31 August
+// (see brra-site membership.php), and a last nudge the day it ends.
+update_option( 'pmpro_from_email', 'mail@buryrefs.org.uk' );
+update_option( 'pmpro_from_name', "Bury & Rochdale Referees' Association" );
+update_option( 'pmpro_email_header_body', '<p>Hi !!header_name!!,</p>' );
+update_option( 'pmpro_email_footer_body', "<p>Best wishes,<br>Bury &amp; Rochdale Referees' Association<br><a href=\"mailto:mail@buryrefs.org.uk\">mail@buryrefs.org.uk</a></p>" );
+update_option( 'pmpro_email_membership_expiring_subject', 'Time to renew: your membership ends on {{ enddate }}' );
+update_option(
+	'pmpro_email_membership_expiring_body',
+	"<p>Your {{ membership_level_name }} membership with the RA ends on <strong>{{ enddate }}</strong>. Renewals for the new season are open now, so renew today and you won't miss a thing.</p>\n\n" .
+	"<p><a href=\"{{ renew_url }}\"><strong>Renew my membership</strong></a></p>\n\n" .
+	"<p>It takes a minute online by card, Apple Pay or Google Pay. Renewing keeps your place at our monthly Development Sessions, mentoring from experienced officials, your weekly appointments, the members' WhatsApp community and your vote at the AGM.</p>\n\n" .
+	"<p>If you've already paid at a meeting, thank you, and please ignore this email.</p>"
+);
+update_option( 'pmpro_email_membership_expired_subject', 'Your RA membership has ended' );
+update_option(
+	'pmpro_email_membership_expired_body',
+	"<p>Your {{ membership_level_name }} membership with the RA has now ended. Thank you for being part of it last season.</p>\n\n" .
+	"<p>We'd love to have you back. You can rejoin at any time and pick up where you left off.</p>\n\n" .
+	"<p><a href=\"{{ renew_url }}\"><strong>Renew my membership</strong></a></p>\n\n" .
+	"<p>If you've stopped refereeing or moved on, we'd still love to hear how you're getting on. Just reply to this email.</p>"
+);
+
 update_option( 'pmpro_wizard_step', 'done' );
 update_option( 'pmpro_filterqueries', 1 );
 update_option( 'pmpro_tos', '' );
@@ -372,7 +392,7 @@ if ( ! ( defined( 'BRRA_DEMO' ) && BRRA_DEMO ) ) {
 		}
 	}
 }
-foreach ( array( 'home', 'about-us', 'upcoming-events', 'membership' ) as $brra_slug ) {
+foreach ( array( 'home', 'about-us', 'upcoming-events', 'membership', 'privacy-notice' ) as $brra_slug ) {
 	$brra_content = strtr( file_get_contents( $brra_dir . '/pages/' . $brra_slug . '.html' ), $brra_tokens ); // phpcs:ignore
 	if ( preg_match( '/\{\{[a-z:-]+\}\}/', $brra_content, $brra_m ) ) {
 		brra_build_log( "Unreplaced token {$brra_m[0]} in {$brra_slug}" );

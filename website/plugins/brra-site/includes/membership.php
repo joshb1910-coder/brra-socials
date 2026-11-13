@@ -110,6 +110,11 @@ add_filter(
 	20
 );
 
+// Send the "time to renew" email 30 days before a membership ends (PMPro's default is 7).
+add_filter( 'pmpro_email_days_before_expiration', function () {
+	return 30;
+} );
+
 // Season memberships end on 31 August at the end of the season.
 add_filter(
 	'pmpro_checkout_end_date',
