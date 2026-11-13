@@ -127,6 +127,7 @@ $brra_pages = array(
 	'about-us'        => brra_build_page( 'about-us', 'About Us', '', 'page-full' ),
 	'upcoming-events' => brra_build_page( 'upcoming-events', 'Upcoming Events', '', 'page-full' ),
 	'membership'      => brra_build_page( 'membership', 'Membership', '', 'page-full' ),
+	'become-a-referee' => brra_build_page( 'become-a-referee', 'Become a Referee', '', 'page-full' ),
 	'news'            => brra_build_page( 'news', 'News' ),
 );
 $brra_pages['contact']   = brra_build_page(
@@ -223,6 +224,26 @@ update_option( 'pmpro_from_email', 'mail@buryrefs.org.uk' );
 update_option( 'pmpro_from_name', "Bury & Rochdale Referees' Association" );
 update_option( 'pmpro_email_header_body', '<p>Hi !!header_name!!,</p>' );
 update_option( 'pmpro_email_footer_body', "<p>Best wishes,<br>Bury &amp; Rochdale Referees' Association<br><a href=\"mailto:mail@buryrefs.org.uk\">mail@buryrefs.org.uk</a></p>" );
+$brra_welcome = "<p>Thanks for joining the Bury &amp; Rochdale Referees' Association. You're now a {{ membership_level_name }}, and we're really glad to have you.</p>\n\n" .
+	"<p><strong>What happens next</strong></p>\n" .
+	"<ul>\n<li>{{ brra_whatsapp }}</li>\n" .
+	"<li>Come along to our next Development Session: the first Thursday of the month, doors 7.00pm, at St Mary's Social Club, Pine Street, Radcliffe, M26 2WQ. <a href=\"{{ brra_events_url }}\">See what's on</a>.</li>\n" .
+	"<li>If you need help with anything, from a tricky game to your next promotion, just reply to this email.</li>\n</ul>\n\n";
+update_option( 'pmpro_email_checkout_paid_subject', "Welcome to the Bury & Rochdale RA" );
+update_option(
+	'pmpro_email_checkout_paid_body',
+	$brra_welcome .
+	"<p><strong>Your receipt</strong><br>\nOrder {{ order_id }} on {{ order_date }}<br>\nMembership: {{ membership_level_name }}<br>\nPaid: {{ order_total }}</p>\n\n" .
+	"{% if membership_expiration %}{{ membership_expiration }}{% endif %}\n\n" .
+	"<p>You can see your membership and update your details at any time: <a href=\"{{ login_url }}\">log in to My Membership</a>.</p>"
+);
+update_option( 'pmpro_email_checkout_free_subject', "Welcome to the Bury & Rochdale RA" );
+update_option(
+	'pmpro_email_checkout_free_body',
+	$brra_welcome .
+	"{% if membership_expiration %}{{ membership_expiration }}{% endif %}\n\n" .
+	"<p>You can see your membership and update your details at any time: <a href=\"{{ login_url }}\">log in to My Membership</a>.</p>"
+);
 update_option( 'pmpro_email_membership_expiring_subject', 'Time to renew: your membership ends on {{ enddate }}' );
 update_option(
 	'pmpro_email_membership_expiring_body',
@@ -392,7 +413,7 @@ if ( ! ( defined( 'BRRA_DEMO' ) && BRRA_DEMO ) ) {
 		}
 	}
 }
-foreach ( array( 'home', 'about-us', 'upcoming-events', 'membership', 'privacy-notice' ) as $brra_slug ) {
+foreach ( array( 'home', 'about-us', 'upcoming-events', 'membership', 'become-a-referee', 'privacy-notice' ) as $brra_slug ) {
 	$brra_content = strtr( file_get_contents( $brra_dir . '/pages/' . $brra_slug . '.html' ), $brra_tokens ); // phpcs:ignore
 	if ( preg_match( '/\{\{[a-z:-]+\}\}/', $brra_content, $brra_m ) ) {
 		brra_build_log( "Unreplaced token {$brra_m[0]} in {$brra_slug}" );

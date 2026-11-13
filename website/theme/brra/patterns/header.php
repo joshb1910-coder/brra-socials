@@ -14,6 +14,7 @@ $brra_nav = array(
 	array( 'label' => 'About Us', 'path' => 'about-us' ),
 	array( 'label' => 'Upcoming Events', 'path' => 'upcoming-events' ),
 	array( 'label' => 'Membership', 'path' => 'membership' ),
+	array( 'label' => 'Become a Referee', 'path' => 'become-a-referee' ),
 	array( 'label' => 'News', 'path' => 'news' ),
 );
 $brra_links = '';

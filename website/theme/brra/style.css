@@ -239,8 +239,8 @@ a.brra-card-link:hover .brra-card-title { text-decoration: underline; }
 
 /* Perks list */
 .brra-ticks { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
-.brra-ticks li { display: flex; gap: 12px; align-items: flex-start; }
-.brra-ticks li::before { content: ""; flex: none; width: 22px; height: 22px; margin-top: 2px; background: no-repeat center / 22px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A6D12' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+.brra-ticks li { position: relative; padding-left: 34px; }
+.brra-ticks li::before { content: ""; position: absolute; left: 0; top: 2px; width: 22px; height: 22px; background: no-repeat center / 22px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A6D12' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
 
 /* FAQ */
 .wp-block-details { border-bottom: 1px solid var(--wp--preset--color--line); padding: 18px 0; }

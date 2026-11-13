@@ -246,6 +246,7 @@ function brra_membership_admin_page() {
 				'discount'      => isset( $_POST['discount'] ) ? min( 100, max( 0, (float) $_POST['discount'] ) ) : 25,
 			)
 		);
+		update_option( 'brra_whatsapp_url', isset( $_POST['whatsapp_url'] ) ? esc_url_raw( wp_unslash( $_POST['whatsapp_url'] ) ) : '' );
 		echo '<div class="notice notice-success"><p>Saved.</p></div>';
 	}
 	if ( isset( $_POST['brra_import_nonce'] ) && wp_verify_nonce( sanitize_key( $_POST['brra_import_nonce'] ), 'brra_import_members' ) && current_user_can( 'pmpro_memberships_menu' ) ) {
@@ -276,6 +277,13 @@ function brra_membership_admin_page() {
 							<label style="display:block"><input type="checkbox" name="season_levels[]" value="<?php echo esc_attr( $l->id ); ?>" <?php checked( brra_is_season_level( $l ) ); ?>> <?php echo esc_html( $l->name ); ?></label>
 						<?php endforeach; ?>
 						<p class="description">These run until 31 August after the season and get the new-member price.</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="whatsapp_url">WhatsApp invite link</label></th>
+					<td>
+						<input type="url" id="whatsapp_url" name="whatsapp_url" class="regular-text" value="<?php echo esc_attr( get_option( 'brra_whatsapp_url', '' ) ); ?>" placeholder="https://chat.whatsapp.com/...">
+						<p class="description">The invite link to the members' WhatsApp community. It goes in the welcome email new members get. Leave blank and the email says the Membership Secretary will add them.</p>
 					</td>
 				</tr>
 				<tr>
@@ -392,3 +400,19 @@ function brra_import_current_members( $raw ) {
 	update_option( 'brra_past_member_emails', array_values( array_unique( $past ) ), false );
 	return $out;
 }
+
+/**
+ * Extra values for the member emails: {{ brra_whatsapp }} and {{ brra_events_url }}.
+ */
+add_filter(
+	'pmpro_email_data',
+	function ( $data ) {
+		$url                     = get_option( 'brra_whatsapp_url', '' );
+		$data['brra_whatsapp']   = $url
+			? 'Join our members\' WhatsApp community for news, updates and help with your games: <a href="' . esc_url( $url ) . '">join the WhatsApp community</a>.'
+			: 'Our Membership Secretary will add you to the members\' WhatsApp community for news, updates and help with your games.';
+		$events                  = get_page_by_path( 'upcoming-events' );
+		$data['brra_events_url'] = $events ? get_permalink( $events ) : home_url( '/' );
+		return $data;
+	}
+);
