@@ -9,29 +9,41 @@
  * @package brra
  */
 
-$brra_nav = array(
+// Main menu items, then the "More" dropdown. Add new pages to $brra_more.
+$brra_nav  = array(
 	array( 'label' => 'Home', 'path' => '' ),
 	array( 'label' => 'About Us', 'path' => 'about-us' ),
 	array( 'label' => 'Upcoming Events', 'path' => 'upcoming-events' ),
 	array( 'label' => 'Membership', 'path' => 'membership' ),
+);
+$brra_more = array(
 	array( 'label' => 'Become a Referee', 'path' => 'become-a-referee' ),
 	array( 'label' => 'News', 'path' => 'news' ),
+	array( 'label' => 'Contact Us', 'path' => 'contact' ),
 );
+$brra_link = function ( $item, $top ) {
+	$page = $item['path'] ? get_page_by_path( $item['path'] ) : get_post( (int) get_option( 'page_on_front' ) );
+	$attr = array(
+		'label'          => $item['label'],
+		'url'            => $page ? get_permalink( $page ) : home_url( '/' . $item['path'] ),
+		'isTopLevelLink' => $top,
+	);
+	if ( $page ) {
+		$attr['type'] = 'page';
+		$attr['id']   = $page->ID;
+		$attr['kind'] = 'post-type';
+	}
+	return '<!-- wp:navigation-link ' . wp_json_encode( $attr ) . ' /-->';
+};
 $brra_links = '';
 foreach ( $brra_nav as $brra_item ) {
-	$brra_page = $brra_item['path'] ? get_page_by_path( $brra_item['path'] ) : get_post( (int) get_option( 'page_on_front' ) );
-	$brra_attr = array(
-		'label'          => $brra_item['label'],
-		'url'            => $brra_page ? get_permalink( $brra_page ) : home_url( '/' . $brra_item['path'] ),
-		'isTopLevelLink' => true,
-	);
-	if ( $brra_page ) {
-		$brra_attr['type'] = 'page';
-		$brra_attr['id']   = $brra_page->ID;
-		$brra_attr['kind'] = 'post-type';
-	}
-	$brra_links .= '<!-- wp:navigation-link ' . wp_json_encode( $brra_attr ) . ' /-->';
+	$brra_links .= $brra_link( $brra_item, true );
 }
+$brra_links .= '<!-- wp:navigation-submenu {"label":"More","url":"#","kind":"custom","isTopLevelItem":true} -->';
+foreach ( $brra_more as $brra_item ) {
+	$brra_links .= $brra_link( $brra_item, false );
+}
+$brra_links .= '<!-- /wp:navigation-submenu -->';
 $brra_join = get_page_by_path( 'membership' );
 ?>
 <!-- wp:group {"tagName":"header","className":"brra-header","backgroundColor":"navy","textColor":"white","layout":{"type":"constrained"}} -->
@@ -43,7 +55,7 @@ $brra_join = get_page_by_path( 'membership' );
 <!-- /wp:html -->
 <!-- wp:group {"layout":{"type":"flex","flexWrap":"wrap"},"style":{"spacing":{"blockGap":"26px"}}} -->
 <div class="wp-block-group">
-<!-- wp:navigation {"overlayMenu":"mobile","layout":{"type":"flex","justifyContent":"right"},"style":{"spacing":{"blockGap":"26px"}}} -->
+<!-- wp:navigation {"overlayMenu":"mobile","openSubmenusOnClick":true,"layout":{"type":"flex","justifyContent":"right"},"style":{"spacing":{"blockGap":"26px"}}} -->
 <?php echo $brra_links; // phpcs:ignore WordPress.Security.EscapeOutput ?>
 <!-- /wp:navigation -->
 <!-- wp:buttons -->

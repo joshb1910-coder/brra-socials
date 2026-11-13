@@ -57,6 +57,13 @@ Text Domain: brra
 .brra-header .wp-block-navigation .current-menu-item > a,
 .brra-header .wp-block-navigation a[aria-current="page"] { border-bottom-color: var(--wp--preset--color--gold); }
 .brra-header .wp-block-navigation a:hover { color: var(--wp--preset--color--gold); }
+/* "More" dropdown */
+.brra-header .wp-block-navigation .wp-block-navigation__submenu-container { background: var(--wp--preset--color--navy-soft) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.12); border-top: 2px solid var(--wp--preset--color--gold); border-radius: 0 0 8px 8px; padding: 8px 0; min-width: 210px; }
+.brra-header .wp-block-navigation .wp-block-navigation__submenu-container a { padding: 9px 18px; border-bottom: 0; }
+.brra-header .wp-block-navigation .wp-block-navigation__submenu-container a[aria-current="page"] { color: var(--wp--preset--color--gold); }
+.brra-header .wp-block-navigation-submenu__toggle { color: inherit; font: inherit; padding: 10px 0; }
+.brra-header .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__submenu-container { background: transparent !important; border: 0; padding: 0 !important; margin: 0 !important; min-width: 0; align-items: flex-end; width: 100%; }
+.brra-header .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__submenu-container a { font-size: .9em; opacity: .85; padding: 6px 0 !important; }
 .brra-header .wp-block-navigation__responsive-container.is-menu-open { background: var(--wp--preset--color--navy) !important; color: #fff !important; padding: 24px; }
 .brra-header .wp-block-button__link { padding: 12px 20px; font-size: 14px; }
 
@@ -260,3 +267,25 @@ a.brra-card-link:hover .brra-card-title { text-decoration: underline; }
 /* PMPro "Show password" toggle is a small text link, not a main button. */
 .pmpro .pmpro_btn.pmpro_btn-password-toggle { background: none; border: 0; box-shadow: none; color: var(--wp--preset--color--slate); padding: 0; font-size: 14px; font-weight: 600; }
 .pmpro .pmpro_btn.pmpro_btn-password-toggle:hover { color: var(--wp--preset--color--ink); background: none; }
+
+/* Full-width split with a diagonal (Become a Referee: Book your course) */
+.brra-split { position: relative; height: clamp(480px, 34vw, 600px); overflow: hidden; background: var(--wp--preset--color--navy); color: #fff; margin-top: 0; }
+.brra-split__half { position: absolute; top: 0; bottom: 0; width: 55%; background-size: cover; background-repeat: no-repeat; display: flex; align-items: flex-end; }
+.brra-split__half::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(5,15,28,.35) 0%, rgba(5,15,28,.85) 100%); }
+.brra-split__half--left { left: 0; clip-path: polygon(0 0, 100% 0, 81.82% 100%, 0 100%); background-position: center; justify-content: flex-start; }
+.brra-split__half--right { right: 0; clip-path: polygon(18.18% 0, 100% 0, 100% 100%, 0 100%); background-position: 25% 0%; justify-content: flex-end; }
+.brra-split__text { position: relative; max-width: 380px; padding: 40px clamp(24px, 4vw, 64px); }
+.brra-split__half--right .brra-split__text { text-align: right; max-width: 330px; }
+.brra-split__text h3 { color: #fff; font-size: 30px; margin: 4px 0 8px; }
+.brra-split__text p { margin: 0 0 18px; color: var(--wp--preset--color--cloud); font-size: 15px; }
+.brra-split__text .brra-split__eyebrow { color: var(--wp--preset--color--gold); font-family: var(--wp--preset--font-family--heading); font-weight: 800; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; margin: 0; }
+.brra-split__btn { display: inline-block; background: var(--wp--preset--color--gold); color: var(--wp--preset--color--navy) !important; font-family: var(--wp--preset--font-family--heading); font-weight: 800; font-size: 14px; padding: 13px 22px; border-radius: 4px; text-decoration: none; }
+.brra-split__btn:hover { background: #fff; }
+.brra-split::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: var(--wp--preset--color--gold); clip-path: polygon(calc(55% - 2px) 0, calc(55% + 2px) 0, calc(45% + 2px) 100%, calc(45% - 2px) 100%); }
+@media (max-width: 781px) {
+	.brra-split { height: auto; }
+	.brra-split__half { position: relative; width: 100%; min-height: 340px; clip-path: none; }
+	.brra-split__half--right { border-top: 3px solid var(--wp--preset--color--gold); justify-content: flex-start; }
+	.brra-split__half--right .brra-split__text { text-align: left; }
+	.brra-split::after { display: none; }
+}
