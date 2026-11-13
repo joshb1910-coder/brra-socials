@@ -61,7 +61,7 @@ Text Domain: brra
 .brra-header .wp-block-navigation .wp-block-navigation__submenu-container { background: var(--wp--preset--color--navy-soft) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.12); border-top: 2px solid var(--wp--preset--color--gold); border-radius: 0 0 8px 8px; padding: 8px 0; min-width: 210px; }
 .brra-header .wp-block-navigation .wp-block-navigation__submenu-container a { padding: 9px 18px; border-bottom: 0; }
 .brra-header .wp-block-navigation .wp-block-navigation__submenu-container a[aria-current="page"] { color: var(--wp--preset--color--gold); }
-.brra-header .wp-block-navigation-submenu__toggle { color: inherit; font: inherit; padding: 10px 0; }
+.brra-header .wp-block-navigation-submenu__toggle { color: inherit; padding: 0; margin-left: 4px; align-self: center; }
 .brra-header .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__submenu-container { background: transparent !important; border: 0; padding: 0 !important; margin: 0 !important; min-width: 0; align-items: flex-end; width: 100%; }
 .brra-header .wp-block-navigation__responsive-container.is-menu-open .wp-block-navigation__submenu-container a { font-size: .9em; opacity: .85; padding: 6px 0 !important; }
 .brra-header .wp-block-navigation__responsive-container.is-menu-open { background: var(--wp--preset--color--navy) !important; color: #fff !important; padding: 24px; }
@@ -289,3 +289,8 @@ a.brra-card-link:hover .brra-card-title { text-decoration: underline; }
 	.brra-split__half--right .brra-split__text { text-align: left; }
 	.brra-split::after { display: none; }
 }
+
+/* Venue map (Contact us) */
+.brra-map { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; border: 1px solid var(--wp--preset--color--line); background: var(--wp--preset--color--mist); }
+.brra-map iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.brra-map__link { font-size: 14px; margin-top: 8px; }

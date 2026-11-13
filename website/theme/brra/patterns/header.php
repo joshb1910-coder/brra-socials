@@ -55,7 +55,7 @@ $brra_join = get_page_by_path( 'membership' );
 <!-- /wp:html -->
 <!-- wp:group {"layout":{"type":"flex","flexWrap":"wrap"},"style":{"spacing":{"blockGap":"26px"}}} -->
 <div class="wp-block-group">
-<!-- wp:navigation {"overlayMenu":"mobile","openSubmenusOnClick":true,"layout":{"type":"flex","justifyContent":"right"},"style":{"spacing":{"blockGap":"26px"}}} -->
+<!-- wp:navigation {"overlayMenu":"mobile","layout":{"type":"flex","justifyContent":"right"},"style":{"spacing":{"blockGap":"26px"}}} -->
 <?php echo $brra_links; // phpcs:ignore WordPress.Security.EscapeOutput ?>
 <!-- /wp:navigation -->
 <!-- wp:buttons -->

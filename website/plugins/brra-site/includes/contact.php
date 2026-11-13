@@ -12,6 +12,7 @@ add_action(
 	'init',
 	function () {
 		add_shortcode( 'brra_contact', 'brra_shortcode_contact' );
+		add_shortcode( 'brra_map', 'brra_shortcode_map' );
 	}
 );
 
@@ -109,3 +110,16 @@ function brra_handle_contact() {
 }
 add_action( 'admin_post_brra_contact', 'brra_handle_contact' );
 add_action( 'admin_post_nopriv_brra_contact', 'brra_handle_contact' );
+
+/**
+ * [brra_map address="..."]: a Google Map of the venue.
+ *
+ * @param array $atts Shortcode attributes.
+ */
+function brra_shortcode_map( $atts ) {
+	$atts = shortcode_atts( array( 'address' => "St Mary's Social Club, Pine Street, Radcliffe, M26 2WQ" ), $atts );
+	$src  = 'https://www.google.com/maps?q=' . rawurlencode( $atts['address'] ) . '&output=embed';
+	$link = 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode( $atts['address'] );
+	return '<div class="brra-map"><iframe src="' . esc_url( $src ) . '" title="Map showing ' . esc_attr( $atts['address'] ) . '" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>'
+		. '<p class="brra-map__link"><a href="' . esc_url( $link ) . '" target="_blank" rel="noreferrer noopener">Open in Google Maps for directions</a></p>';
+}
