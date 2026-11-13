@@ -133,7 +133,7 @@ $brra_pages = array(
 $brra_pages['contact']   = brra_build_page(
 	'contact',
 	'Contact us',
-	"<!-- wp:paragraph -->\n<p>Email us at <a href=\"mailto:mail@buryrefs.org.uk\">mail@buryrefs.org.uk</a> and we'll get back to you within 72 hours.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph -->\n<p>Or come and find us at a Development Session: first Thursday of the month, doors 7.00pm, at St Mary's Social Club, Pine Street, Radcliffe, M26 2WQ.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph -->\n<p>We're also on <a href=\"https://www.instagram.com/buryreferees/\">Instagram</a>, <a href=\"https://www.facebook.com/profile.php?id=61565202158021\">Facebook</a> and <a href=\"https://twitter.com/BuryReferees\">X</a>.</p>\n<!-- /wp:paragraph -->"
+	"<!-- wp:paragraph -->\n<p>Questions about membership, becoming a referee or anything else? Send us a message below and one of the committee will reply, usually within 72 hours. You can also email <a href=\"mailto:mail@buryrefs.org.uk\">mail@buryrefs.org.uk</a>.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:shortcode -->\n[brra_contact]\n<!-- /wp:shortcode -->\n\n<!-- wp:paragraph -->\n<p>Or come and find us at a Monthly Development Session: first Thursday of the month, doors 19:00, KO 19:30, at St Mary's Social Club, Pine Street, Radcliffe, M26 2WQ.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:paragraph -->\n<p>We're also on <a href=\"https://www.instagram.com/buryreferees/\">Instagram</a>, <a href=\"https://www.facebook.com/profile.php?id=61565202158021\">Facebook</a> and <a href=\"https://twitter.com/BuryReferees\">X</a>.</p>\n<!-- /wp:paragraph -->"
 );
 $brra_pages['privacy-notice'] = brra_build_page( 'privacy-notice', 'Privacy notice' );
 update_option( 'wp_page_for_privacy_policy', $brra_pages['privacy-notice'] );
@@ -262,6 +262,7 @@ update_option(
 );
 
 update_option( 'pmpro_wizard_step', 'done' );
+delete_option( 'pmpro_wizard_redirect' );
 update_option( 'pmpro_filterqueries', 1 );
 update_option( 'pmpro_tos', '' );
 update_option( 'pmpro_spamprotection', 2 );
