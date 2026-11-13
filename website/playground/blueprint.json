@@ -6,13 +6,47 @@
     "author": "Bury & Rochdale RA"
   },
   "landingPage": "/",
-  "preferredVersions": { "php": "8.3", "wp": "latest" },
-  "features": { "networking": true },
+  "preferredVersions": {
+    "php": "8.3",
+    "wp": "latest"
+  },
+  "features": {
+    "networking": true
+  },
   "steps": [
-    { "step": "installPlugin", "pluginData": { "resource": "wordpress.org/plugins", "slug": "paid-memberships-pro" }, "options": { "activate": true } },
-    { "step": "installPlugin", "pluginData": { "resource": "url", "url": "https://raw.githubusercontent.com/joshb1910-coder/brra-socials/claude/project-thread-kira97/website/playground/brra-site.zip" }, "options": { "activate": true } },
-    { "step": "installTheme", "themeData": { "resource": "url", "url": "https://raw.githubusercontent.com/joshb1910-coder/brra-socials/claude/project-thread-kira97/website/playground/brra-theme.zip" }, "options": { "activate": true } },
-    { "step": "unzip", "zipFile": { "resource": "url", "url": "https://raw.githubusercontent.com/joshb1910-coder/brra-socials/claude/project-thread-kira97/website/playground/brra-setup.zip" }, "extractToPath": "/wordpress" },
-    { "step": "runPHP", "code": "<?php require_once '/wordpress/wp-load.php'; require '/wordpress/brra-setup/build.php';" }
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "wordpress.org/plugins",
+        "slug": "paid-memberships-pro"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "url",
+        "url": "https://raw.githubusercontent.com/joshb1910-coder/brra-socials/claude/project-thread-kira97/website/playground/brra-site.zip"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "installTheme",
+      "themeData": {
+        "resource": "url",
+        "url": "https://raw.githubusercontent.com/joshb1910-coder/brra-socials/claude/project-thread-kira97/website/playground/brra-theme.zip"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php define('BRRA_DEMO', true); require_once '/wordpress/wp-load.php'; require '/wordpress/wp-content/plugins/brra-site/setup/build.php'; update_option('brra_built', current_time('mysql'));"
+    }
   ]
 }

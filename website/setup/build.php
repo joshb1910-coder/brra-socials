@@ -81,8 +81,6 @@ $brra_media = array(
 	'peter-wright'      => brra_build_media( 'peter-wright.jpg', 'Peter Wright' ),
 	'grassroots-action' => brra_build_media( 'grassroots-action.jpg', 'A referee during a grassroots match' ),
 	'referee-stadium'   => brra_build_media( 'referee-stadium.jpg', 'A referee in a stadium' ),
-	'advantage-cover'   => brra_build_media( 'advantage-cover.jpg', 'Advantage: the hardest decision that looks like doing nothing' ),
-	'advantage-zones'   => brra_build_media( 'advantage-zones.jpg', 'Traffic-light zones for playing advantage' ),
 );
 
 // ---------------------------------------------------------------- Categories.
@@ -201,7 +199,11 @@ $brra_life = brra_build_level(
 );
 update_option( 'brra_membership', array( 'season_levels' => array( $brra_full ), 'discount' => 25 ) );
 // Demo only: one address that counts as a past member. The real list is pasted in under Memberships > New member price.
-update_option( 'brra_past_member_emails', array( 'member@buryrefs.org.uk' ), false );
+// Demo only: one made-up past member so the full price can be tried. On the live site the list starts
+// empty and the real past-member emails are pasted in under Memberships > New member price.
+if ( defined( 'BRRA_DEMO' ) && BRRA_DEMO ) {
+	update_option( 'brra_past_member_emails', array( 'member@buryrefs.org.uk' ), false );
+}
 
 update_option( 'pmpro_currency', 'GBP' );
 update_option( 'pmpro_gateway', 'check' );
@@ -359,49 +361,56 @@ foreach ( array( 'home', 'about-us', 'upcoming-events', 'membership' ) as $brra_
 	wp_update_post( wp_slash( array( 'ID' => $brra_pages[ $brra_slug ], 'post_content' => $brra_content ) ) );
 }
 
-// ---------------------------------------------------------------- Sample news (real posts copied from the Wix blog).
-/**
- * Turn a plain-text appointments post into simple HTML.
- *
- * @param string $text Text with "## " headings and blank-line separated blocks.
- * @return string
- */
-function brra_build_text_to_html( $text ) {
-	$html = '';
-	foreach ( preg_split( '/\n\s*\n/', trim( $text ) ) as $block ) {
-		if ( 0 === strpos( $block, '## ' ) ) {
-			$html .= '<h2>' . esc_html( substr( $block, 3 ) ) . "</h2>\n";
-		} else {
-			$html .= '<p>' . implode( '<br>', array_map( 'esc_html', explode( "\n", $block ) ) ) . "</p>\n";
+// ---------------------------------------------------------------- News: every post from the Wix blog.
+// news/wix-posts.json is made by setup/wix-export.py. Covers and pictures stay on Wix until
+// Tools > Copy Wix images is run (see plugins/brra-site/includes/wix.php).
+$brra_wix = json_decode( file_get_contents( $brra_dir . '/news/wix-posts.json' ), true ); // phpcs:ignore
+foreach ( $brra_wix as $brra_n ) {
+	$brra_cats = array();
+	foreach ( $brra_n['categories'] as $brra_cat ) {
+		$brra_term = term_exists( $brra_cat, 'category' );
+		if ( ! $brra_term ) {
+			$brra_term = wp_insert_term( $brra_cat, 'category' );
 		}
+		$brra_cats[] = (int) ( is_array( $brra_term ) ? $brra_term['term_id'] : $brra_term );
 	}
-	return $html;
-}
-$brra_news = array(
-	array( 'advantage-the-hardest-decision-that-looks-like-doing-nothing', 'Advantage: The Hardest Decision That Looks Like Doing Nothing', '2026-10-15 09:59:32', 'Educational', 'advantage-cover', strtr( file_get_contents( $brra_dir . '/news/advantage.html' ), array( '{{img:advantage-zones}}' => wp_get_attachment_image_url( $brra_media['advantage-zones'], 'full' ) ) ) ), // phpcs:ignore
-	array( 'appointments-10th-16th-october-2026', 'APPOINTMENTS | 10th-16th October 2026', '2026-10-09 11:34:49', 'Appointments', 'walkout', brra_build_text_to_html( file_get_contents( $brra_dir . '/news/appointments-2026-10-10.txt' ) ) ), // phpcs:ignore
-	array( 'appointments-26th-september-2nd-october-2026', 'APPOINTMENTS | 26th September - 2nd October 2026', '2026-09-25 12:12:13', 'Appointments', 'referee-stadium', brra_build_text_to_html( file_get_contents( $brra_dir . '/news/appointments-2026-09-26.txt' ) ) ), // phpcs:ignore
-	array( 'appointments-18th-25th-september-2026', 'APPOINTMENTS | 18th - 25th September 2026', '2026-09-19 08:45:39', 'Appointments', 'grassroots-action', brra_build_text_to_html( file_get_contents( $brra_dir . '/news/appointments-2026-09-18.txt' ) ) ), // phpcs:ignore
-);
-foreach ( $brra_news as $brra_n ) {
-	list( $brra_slug, $brra_title, $brra_date, $brra_cat, $brra_img, $brra_html ) = $brra_n;
-	$brra_existing = get_page_by_path( $brra_slug, OBJECT, 'post' );
+	$brra_existing = get_page_by_path( $brra_n['slug'], OBJECT, 'post' );
 	$brra_id       = wp_insert_post(
 		wp_slash(
 			array(
 				'ID'            => $brra_existing ? $brra_existing->ID : 0,
 				'post_type'     => 'post',
 				'post_status'   => 'publish',
-				'post_name'     => $brra_slug,
-				'post_title'    => $brra_title,
-				'post_date'     => $brra_date,
-				'post_content'  => $brra_html,
-				'post_category' => array( (int) get_cat_ID( $brra_cat ) ),
+				'post_name'     => $brra_n['slug'],
+				'post_title'    => $brra_n['title'],
+				'post_date'     => get_date_from_gmt( $brra_n['date_gmt'] ),
+				'post_date_gmt' => $brra_n['date_gmt'],
+				'post_content'  => $brra_n['html'],
+				'post_category' => $brra_cats,
+				'tags_input'    => $brra_n['tags'],
 			)
 		)
 	);
-	set_post_thumbnail( $brra_id, $brra_media[ $brra_img ] );
+	if ( is_wp_error( $brra_id ) ) {
+		brra_build_log( $brra_n['title'] . ': ' . $brra_id->get_error_message() );
+		continue;
+	}
+	update_post_meta( $brra_id, '_brra_wix_id', $brra_n['wix_id'] );
+	if ( $brra_n['cover'] && ! get_post_thumbnail_id( $brra_id ) ) {
+		update_post_meta( $brra_id, '_brra_cover_url', $brra_n['cover'] );
+	}
+	if ( $brra_n['cover'] || false !== strpos( $brra_n['html'], 'static.wixstatic.com' ) ) {
+		update_post_meta( $brra_id, '_brra_wix_pending', '1' );
+	}
+	// Members-only on Wix stays members-only here.
+	$wpdb->delete( $wpdb->pmpro_memberships_pages, array( 'page_id' => $brra_id ) );
+	if ( $brra_n['members_only'] ) {
+		foreach ( array( $brra_full, $brra_life ) as $brra_level ) {
+			$wpdb->insert( $wpdb->pmpro_memberships_pages, array( 'membership_id' => $brra_level, 'page_id' => $brra_id ) );
+		}
+	}
 }
+update_option( 'posts_per_page', 9 );
 
 flush_rewrite_rules();
 brra_build_log( 'Site built.', 'success' );

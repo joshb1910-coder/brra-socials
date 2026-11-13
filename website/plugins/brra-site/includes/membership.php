@@ -243,6 +243,14 @@ function brra_membership_admin_page() {
 		);
 		echo '<div class="notice notice-success"><p>Saved.</p></div>';
 	}
+	if ( isset( $_POST['brra_import_nonce'] ) && wp_verify_nonce( sanitize_key( $_POST['brra_import_nonce'] ), 'brra_import_members' ) && current_user_can( 'pmpro_memberships_menu' ) ) {
+		$r = brra_import_current_members( isset( $_POST['current_members'] ) ? sanitize_textarea_field( wp_unslash( $_POST['current_members'] ) ) : '' );
+		echo '<div class="notice notice-' . ( $r['errors'] ? 'warning' : 'success' ) . '"><p>' . esc_html( sprintf( 'Added %d members (%d new accounts).', $r['added'], $r['created'] ) ) . '</p>';
+		foreach ( $r['errors'] as $e ) {
+			echo '<p>' . esc_html( $e ) . '</p>';
+		}
+		echo '</div>';
+	}
 	$settings = brra_membership_settings();
 	$levels   = function_exists( 'pmpro_getAllLevels' ) ? pmpro_getAllLevels( true ) : array();
 	?>
@@ -275,6 +283,107 @@ function brra_membership_admin_page() {
 			</table>
 			<?php submit_button(); ?>
 		</form>
+
+		<h2>Add current members</h2>
+		<p>For people who have already paid for this season (for example on the old website, by bank transfer or in cash). Each gets an account and a membership until 31 August, without being charged and without an email. They can log in later with "Lost your password?" using the same email.</p>
+		<form method="post">
+			<?php wp_nonce_field( 'brra_import_members', 'brra_import_nonce' ); ?>
+			<textarea name="current_members" rows="10" cols="80" placeholder="First name, Last name, email&#10;Jane, Smith, jane@example.com&#10;Bob, Jones, bob@example.com, life"></textarea>
+			<p class="description">One member per line: first name, last name, email. Add <code>, life</code> at the end for a Life Member. Running it again for someone already added just updates them.</p>
+			<?php submit_button( 'Add current members', 'secondary' ); ?>
+		</form>
 	</div>
 	<?php
+}
+
+/**
+ * Give people who have already paid this season an account and membership.
+ *
+ * @param string $raw Lines of "first, last, email[, life]".
+ * @return array{added:int,created:int,errors:string[]}
+ */
+function brra_import_current_members( $raw ) {
+	$out    = array( 'added' => 0, 'created' => 0, 'errors' => array() );
+	$levels = function_exists( 'pmpro_getAllLevels' ) ? pmpro_getAllLevels( true ) : array();
+	$full   = 0;
+	$life   = 0;
+	foreach ( $levels as $l ) {
+		if ( ! $full && brra_is_season_level( $l ) ) {
+			$full = (int) $l->id;
+		} elseif ( ! $life && 0 === stripos( $l->name, 'life' ) ) {
+			$life = (int) $l->id;
+		}
+	}
+	if ( ! $full || ! function_exists( 'pmpro_changeMembershipLevel' ) ) {
+		$out['errors'][] = 'No season membership level found.';
+		return $out;
+	}
+	$season = brra_current_season();
+	$past   = brra_past_member_emails();
+	foreach ( preg_split( '/\r?\n/', $raw ) as $line ) {
+		$cols = array_map( 'trim', str_getcsv( $line ) );
+		if ( count( $cols ) < 3 || '' === $cols[2] ) {
+			if ( trim( $line ) ) {
+				$out['errors'][] = 'Skipped (needs first name, last name, email): ' . $line;
+			}
+			continue;
+		}
+		list( $first, $last, $email ) = $cols;
+		$email   = strtolower( $email );
+		$is_life = isset( $cols[3] ) && 'life' === strtolower( $cols[3] ) && $life;
+		if ( ! is_email( $email ) ) {
+			$out['errors'][] = 'Not a valid email: ' . $line;
+			continue;
+		}
+		$user = get_user_by( 'email', $email );
+		if ( ! $user ) {
+			$login = sanitize_user( current( explode( '@', $email ) ), true );
+			$base  = $login ? $login : 'member';
+			for ( $i = 2; username_exists( $login ) || ! $login; $i++ ) {
+				$login = $base . $i;
+			}
+			$id = wp_insert_user(
+				array(
+					'user_login'   => $login,
+					'user_email'   => $email,
+					'user_pass'    => wp_generate_password( 24 ),
+					'first_name'   => $first,
+					'last_name'    => $last,
+					'display_name' => trim( "$first $last" ),
+					'role'         => 'subscriber',
+				)
+			);
+			if ( is_wp_error( $id ) ) {
+				$out['errors'][] = $email . ': ' . $id->get_error_message();
+				continue;
+			}
+			$user = get_user_by( 'id', $id );
+			++$out['created'];
+		}
+		$ok = pmpro_changeMembershipLevel(
+			array(
+				'user_id'         => $user->ID,
+				'membership_id'   => $is_life ? $life : $full,
+				'code_id'         => 0,
+				'initial_payment' => 0,
+				'billing_amount'  => 0,
+				'cycle_number'    => 0,
+				'cycle_period'    => '',
+				'billing_limit'   => 0,
+				'trial_amount'    => 0,
+				'trial_limit'     => 0,
+				'startdate'       => current_time( 'mysql' ),
+				'enddate'         => $is_life ? '0000-00-00 00:00:00' : $season[1] . '-08-31 23:59:59',
+			),
+			$user->ID
+		);
+		if ( ! $ok ) {
+			$out['errors'][] = $email . ': could not set the membership.';
+			continue;
+		}
+		$past[] = $email;
+		++$out['added'];
+	}
+	update_option( 'brra_past_member_emails', array_values( array_unique( $past ) ), false );
+	return $out;
 }
