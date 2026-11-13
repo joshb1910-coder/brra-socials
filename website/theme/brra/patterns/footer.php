@@ -32,7 +32,7 @@
 <p>St Mary's Social Club<br>Pine Street, Radcliffe<br>M26 2WQ</p>
 <!-- /wp:paragraph -->
 <!-- wp:paragraph -->
-<p>First Thursday of the month, 7.00 for 7.30pm</p>
+<p>Monthly Development Session: first Thursday of the month<br>Doors 19:00, KO 19:30</p>
 <!-- /wp:paragraph -->
 </div>
 <!-- /wp:column -->
