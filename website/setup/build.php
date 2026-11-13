@@ -353,6 +353,16 @@ foreach ( $brra_media as $brra_key => $brra_id ) {
 	$brra_tokens[ '{{img:' . $brra_key . '}}' ] = wp_get_attachment_image_url( $brra_id, 'full' );
 	$brra_tokens[ '{{id:' . $brra_key . '}}' ]  = $brra_id;
 }
+// On a real site, links and images in page content are stored without the domain, so they keep
+// working when the site moves from Hostinger's temporary address to buryrefs.org.uk.
+// (Playground serves the site under a sub-path, so the demo keeps full addresses.)
+if ( ! ( defined( 'BRRA_DEMO' ) && BRRA_DEMO ) ) {
+	foreach ( $brra_tokens as $brra_k => $brra_v ) {
+		if ( is_string( $brra_v ) && 0 === strpos( $brra_v, 'http' ) ) {
+			$brra_tokens[ $brra_k ] = wp_make_link_relative( $brra_v );
+		}
+	}
+}
 foreach ( array( 'home', 'about-us', 'upcoming-events', 'membership' ) as $brra_slug ) {
 	$brra_content = strtr( file_get_contents( $brra_dir . '/pages/' . $brra_slug . '.html' ), $brra_tokens ); // phpcs:ignore
 	if ( preg_match( '/\{\{[a-z:-]+\}\}/', $brra_content, $brra_m ) ) {

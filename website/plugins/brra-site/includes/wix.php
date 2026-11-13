@@ -125,7 +125,7 @@ function brra_copy_wix_images( $limit = 10 ) {
 					$errors[] = get_the_title( $id ) . ': ' . $new->get_error_message();
 					continue;
 				}
-				$content = str_replace( $url, $new, $content );
+				$content = str_replace( $url, wp_make_link_relative( $new ), $content );
 			}
 			wp_update_post( wp_slash( array( 'ID' => $id, 'post_content' => $content ) ) );
 		}
