@@ -492,3 +492,37 @@ add_action(
 	10,
 	2
 );
+
+/**
+ * Clear RSVP names and emails from events in past seasons, as the privacy notice promises.
+ * Runs once a day; anything dated before the current season (which starts 1 June) is cleared.
+ */
+add_action(
+	'init',
+	function () {
+		if ( ! wp_next_scheduled( 'brra_clear_old_rsvps' ) ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'brra_clear_old_rsvps' );
+		}
+	}
+);
+add_action(
+	'brra_clear_old_rsvps',
+	function () {
+		$season = function_exists( 'brra_current_season' ) ? brra_current_season() : array( (int) gmdate( 'Y' ) - 1 );
+		$ids    = get_posts(
+			array(
+				'post_type'      => 'brra_event',
+				'post_status'    => 'any',
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery
+					array( 'key' => '_brra_rsvps', 'compare' => 'EXISTS' ),
+					array( 'key' => '_brra_date', 'value' => $season[0] . '-06-01', 'compare' => '<', 'type' => 'DATE' ),
+				),
+			)
+		);
+		foreach ( $ids as $id ) {
+			delete_post_meta( $id, '_brra_rsvps' );
+		}
+	}
+);
