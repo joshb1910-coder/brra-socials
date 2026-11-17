@@ -163,8 +163,8 @@ a.brra-card-link:hover .brra-card-title { text-decoration: underline; }
 
 .brra-next { display: flex; flex-wrap: wrap; background: #fff; border-radius: 10px; overflow: hidden; border: 1px solid var(--wp--preset--color--line); }
 .brra-next.is-raised { border: 0; box-shadow: 0 18px 40px rgba(5, 15, 28, 0.18); }
-.brra-next__img { flex: 1 1 420px; max-width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
-.brra-next.is-compact .brra-next__img { flex: 1 1 260px; aspect-ratio: 4 / 3; max-height: 240px; }
+.brra-next__img { flex: 1 1 420px; max-width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+.brra-next.is-compact .brra-next__img { flex: 1 1 260px; min-width: 0; aspect-ratio: auto; height: auto; min-height: 220px; align-self: stretch; contain: size; }
 .brra-next__body { flex: 1 1 360px; min-width: 0; padding: 30px 34px; display: flex; flex-direction: column; gap: 12px; justify-content: center; }
 .brra-next__date { font-family: var(--wp--preset--font-family--heading); font-weight: 800; font-size: 13px; letter-spacing: 0.16em; color: var(--wp--preset--color--gold-text); text-transform: uppercase; }
 .brra-next__title { margin: 0; font-size: 28px; }
@@ -257,6 +257,7 @@ a.brra-card-link:hover .brra-card-title { text-decoration: underline; }
 	.brra-overlap { margin-top: -40px !important; }
 	.brra-event-row img { display: none; }
 	.brra-next__body { padding: 24px; }
+	.brra-next.is-compact .brra-next__img { flex-basis: 100%; contain: none; aspect-ratio: 16 / 9; min-height: 0; }
 }
 
 /* Layout fixes: no gap between header, page and footer; hero lines up with the sections below. */

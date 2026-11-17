@@ -293,22 +293,68 @@ if ( function_exists( 'pmpro_generatePages' ) ) {
 	wp_update_post( array( 'ID' => (int) get_option( 'pmpro_account_page_id' ), 'post_name' => 'my-membership' ) );
 }
 
-// Membership sign-up fields: FA number, referee level, county FA.
+// Membership sign-up fields: the member details the RA keeps (shown on the Join page and in My Membership).
+/**
+ * One PMPro user field definition, in the shape the User Fields settings page saves.
+ *
+ * @param string $label    Label.
+ * @param string $name     Meta key.
+ * @param string $type     Field type.
+ * @param bool   $required Required at checkout.
+ * @param string $options  Options for selects, one per line.
+ * @param string $hint     Help text under the field.
+ */
+function brra_build_field( $label, $name, $type = 'text', $required = false, $options = '', $hint = '' ) {
+	// PMPro saves the array index for an option without a value, so give each option its own text as the value.
+	$options = implode( "\n", array_map( fn( $o ) => false === strpos( $o, ':' ) ? $o . ':' . $o : $o, array_filter( explode( "\n", $options ), 'strlen' ) ) );
+	return (object) array( 'label' => $label, 'name' => $name, 'type' => $type, 'required' => $required, 'readonly' => false, 'profile' => 'yes', 'wrapper_class' => '', 'element_class' => '', 'hint' => $hint, 'options' => $options, 'allowed_file_types' => '', 'max_file_size' => '', 'default' => '' );
+}
+/**
+ * One group of user fields shown at checkout and on the profile.
+ *
+ * @param string $name   Group heading.
+ * @param array  $fields Fields.
+ */
+function brra_build_field_group( $name, $fields ) {
+	return (object) array( 'name' => $name, 'checkout' => 'yes', 'profile' => 'yes', 'description' => '', 'levels' => array(), 'fields' => $fields );
+}
 update_option(
 	'pmpro_user_fields_settings',
 	array(
-		(object) array(
-			'name'        => 'About you',
-			'checkout'    => 'yes',
-			'profile'     => 'yes',
-			'description' => '',
-			'levels'      => array(),
-			'fields'      => array(
-				(object) array( 'label' => 'Phone', 'name' => 'brra_phone', 'type' => 'text', 'required' => false, 'readonly' => false, 'profile' => 'yes', 'wrapper_class' => '', 'element_class' => '', 'hint' => '', 'options' => '', 'allowed_file_types' => '', 'max_file_size' => '', 'default' => '' ),
-				(object) array( 'label' => 'FA number (FAN)', 'name' => 'brra_fan', 'type' => 'text', 'required' => false, 'readonly' => false, 'profile' => 'yes', 'wrapper_class' => '', 'element_class' => '', 'hint' => 'Leave blank if you are not registered yet.', 'options' => '', 'allowed_file_types' => '', 'max_file_size' => '', 'default' => '' ),
-				(object) array( 'label' => 'Referee level', 'name' => 'brra_level', 'type' => 'select', 'required' => true, 'readonly' => false, 'profile' => 'yes', 'wrapper_class' => '', 'element_class' => '', 'hint' => '', 'options' => ":Choose your level\nTrainee / not yet qualified\nLevel 7\nLevel 6\nLevel 5\nLevel 4\nLevel 3 and above\nNot refereeing (supporter)", 'allowed_file_types' => '', 'max_file_size' => '', 'default' => '' ),
-				(object) array( 'label' => 'County FA', 'name' => 'brra_county', 'type' => 'select', 'required' => false, 'readonly' => false, 'profile' => 'yes', 'wrapper_class' => '', 'element_class' => '', 'hint' => '', 'options' => ":Choose your county\nManchester FA\nLancashire FA\nOther", 'allowed_file_types' => '', 'max_file_size' => '', 'default' => '' ),
-			),
+		brra_build_field_group(
+			'About you',
+			array(
+				brra_build_field( 'First name', 'first_name', 'text', true ),
+				brra_build_field( 'Last name', 'last_name', 'text', true ),
+				brra_build_field( 'Date of birth', 'brra_dob', 'date', true ),
+				brra_build_field( 'Phone', 'brra_phone', 'text', true ),
+				brra_build_field( 'Address', 'brra_address1', 'text', true ),
+				brra_build_field( 'Address line 2', 'brra_address2' ),
+				brra_build_field( 'Town or city', 'brra_town', 'text', true ),
+				brra_build_field( 'Postcode', 'brra_postcode', 'text', true ),
+			)
+		),
+		brra_build_field_group(
+			'Your refereeing',
+			array(
+				brra_build_field( 'FA number (FAN)', 'brra_fan', 'text', false, '', 'Leave blank if you are not registered yet.' ),
+				brra_build_field( 'Referee level', 'brra_level', 'select', true, ":Choose your level\nTrainee / not yet qualified\nLevel 7\nLevel 6\nLevel 5\nLevel 4\nLevel 3\nLevel 2B\nLevel 2A and above\nNot refereeing (supporter)" ),
+				brra_build_field( 'County FA', 'brra_county', 'select', true, ":Choose your county\nManchester FA\nLancashire FA\nCheshire FA\nLiverpool County FA\nWest Riding County FA\nOther\nNot registered yet" ),
+			)
+		),
+		brra_build_field_group(
+			'Emergency contact',
+			array(
+				brra_build_field( 'Contact name', 'brra_ice_name', 'text', true ),
+				brra_build_field( 'Contact phone', 'brra_ice_phone', 'text', true ),
+				brra_build_field( 'Relationship to you', 'brra_ice_relation', 'text', false, '', 'For example partner, parent or friend.' ),
+			)
+		),
+		brra_build_field_group(
+			'Your information',
+			array(
+				brra_build_field( 'I agree to the RA keeping these details to run my membership, as explained in our privacy notice', 'brra_consent', 'checkbox', true, '', 'You can read the privacy notice at the bottom of every page, and update your details any time under My Membership.' ),
+			)
 		),
 	)
 );
