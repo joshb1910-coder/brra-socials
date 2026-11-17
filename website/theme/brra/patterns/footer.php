@@ -42,7 +42,7 @@
 <p class="brra-footer__head">MEMBERS</p>
 <!-- /wp:paragraph -->
 <!-- wp:paragraph -->
-<p><a href="<?php echo esc_url( home_url( '/membership/' ) ); ?>">Join or renew</a><br><a href="<?php echo esc_url( home_url( '/my-membership/' ) ); ?>">My Membership</a><br><a href="<?php echo esc_url( home_url( '/privacy-notice/' ) ); ?>">Privacy notice</a></p>
+<p><a href="<?php echo esc_url( home_url( '/membership/' ) ); ?>">Join or renew</a><br><a href="<?php echo esc_url( home_url( '/my-account/' ) ); ?>">My Account</a><br><a href="<?php echo esc_url( home_url( '/privacy-notice/' ) ); ?>">Privacy notice</a></p>
 <!-- /wp:paragraph -->
 </div>
 <!-- /wp:column -->

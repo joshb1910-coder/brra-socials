@@ -235,14 +235,14 @@ update_option(
 	$brra_welcome .
 	"<p><strong>Your receipt</strong><br>\nOrder {{ order_id }} on {{ order_date }}<br>\nMembership: {{ membership_level_name }}<br>\nPaid: {{ order_total }}</p>\n\n" .
 	"{% if membership_expiration %}{{ membership_expiration }}{% endif %}\n\n" .
-	"<p>You can see your membership and update your details at any time: <a href=\"{{ login_url }}\">log in to My Membership</a>.</p>"
+	"<p>You can see your membership and update your details at any time: <a href=\"{{ login_url }}\">log in to My Account</a>.</p>"
 );
 update_option( 'pmpro_email_checkout_free_subject', "Welcome to the Bury & Rochdale RA" );
 update_option(
 	'pmpro_email_checkout_free_body',
 	$brra_welcome .
 	"{% if membership_expiration %}{{ membership_expiration }}{% endif %}\n\n" .
-	"<p>You can see your membership and update your details at any time: <a href=\"{{ login_url }}\">log in to My Membership</a>.</p>"
+	"<p>You can see your membership and update your details at any time: <a href=\"{{ login_url }}\">log in to My Account</a>.</p>"
 );
 update_option( 'pmpro_email_membership_expiring_subject', 'Time to renew: your membership ends on {{ enddate }}' );
 update_option(
@@ -279,7 +279,7 @@ if ( function_exists( 'pmpro_generatePages' ) ) {
 	}
 	pmpro_generatePages(
 		array(
-			'account'             => 'My Membership',
+			'account'             => 'My Account',
 			'billing'             => 'Billing Information',
 			'cancel'              => 'Cancel Membership',
 			'checkout'            => 'Join',
@@ -290,10 +290,10 @@ if ( function_exists( 'pmpro_generatePages' ) ) {
 		)
 	);
 	wp_update_post( array( 'ID' => (int) get_option( 'pmpro_checkout_page_id' ), 'post_name' => 'join' ) );
-	wp_update_post( array( 'ID' => (int) get_option( 'pmpro_account_page_id' ), 'post_name' => 'my-membership' ) );
+	wp_update_post( array( 'ID' => (int) get_option( 'pmpro_account_page_id' ), 'post_name' => 'my-account' ) );
 }
 
-// Membership sign-up fields: the member details the RA keeps (shown on the Join page and in My Membership).
+// Membership sign-up fields: the member details the RA keeps (shown on the Join page and in My Account).
 /**
  * One PMPro user field definition, in the shape the User Fields settings page saves.
  *
@@ -338,22 +338,15 @@ update_option(
 			'Your refereeing',
 			array(
 				brra_build_field( 'FA number (FAN)', 'brra_fan', 'text', false, '', 'Leave blank if you are not registered yet.' ),
-				brra_build_field( 'Referee level', 'brra_level', 'select', true, ":Choose your level\nTrainee / not yet qualified\nLevel 7\nLevel 6\nLevel 5\nLevel 4\nLevel 3\nLevel 2B\nLevel 2A and above\nNot refereeing (supporter)" ),
+				brra_build_field( 'Referee level', 'brra_level', 'select', true, ":Choose your level\nTrainee / not yet qualified\nLevel 7\nLevel 6\nLevel 5\nLevel 4\nLevel 3\nLevel 2\nLevel 1\nNot refereeing (supporter)" ),
+				brra_build_field( 'Role', 'brra_role', 'select', false, ":Choose your role\nDual Role\nReferee\nAssistant Referee\nWorkforce", 'Leave blank if you are not refereeing.' ),
 				brra_build_field( 'County FA', 'brra_county', 'select', true, ":Choose your county\nManchester FA\nLancashire FA\nCheshire FA\nLiverpool County FA\nWest Riding County FA\nOther\nNot registered yet" ),
-			)
-		),
-		brra_build_field_group(
-			'Emergency contact',
-			array(
-				brra_build_field( 'Contact name', 'brra_ice_name', 'text', true ),
-				brra_build_field( 'Contact phone', 'brra_ice_phone', 'text', true ),
-				brra_build_field( 'Relationship to you', 'brra_ice_relation', 'text', false, '', 'For example partner, parent or friend.' ),
 			)
 		),
 		brra_build_field_group(
 			'Your information',
 			array(
-				brra_build_field( 'I agree to the RA keeping these details to run my membership, as explained in our privacy notice', 'brra_consent', 'checkbox', true, '', 'You can read the privacy notice at the bottom of every page, and update your details any time under My Membership.' ),
+				brra_build_field( 'I agree to the RA keeping these details to run my membership, as explained in our privacy notice', 'brra_consent', 'checkbox', true, '', 'You can read the privacy notice at the bottom of every page, and update your details any time under My Account.' ),
 			)
 		),
 	)

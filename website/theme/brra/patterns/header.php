@@ -20,6 +20,7 @@ $brra_more = array(
 	array( 'label' => 'Become a Referee', 'path' => 'become-a-referee' ),
 	array( 'label' => 'News', 'path' => 'news' ),
 	array( 'label' => 'Contact Us', 'path' => 'contact' ),
+	array( 'label' => 'My Account', 'path' => 'my-account' ),
 );
 $brra_link = function ( $item, $top ) {
 	$page = $item['path'] ? get_page_by_path( $item['path'] ) : get_post( (int) get_option( 'page_on_front' ) );
