@@ -13,6 +13,7 @@ add_action(
 	function () {
 		add_shortcode( 'brra_contact', 'brra_shortcode_contact' );
 		add_shortcode( 'brra_map', 'brra_shortcode_map' );
+		add_shortcode( 'brra_venue', 'brra_shortcode_venue' );
 	}
 );
 
@@ -122,4 +123,50 @@ function brra_shortcode_map( $atts ) {
 	$link = 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode( $atts['address'] );
 	return '<div class="brra-map"><iframe src="' . esc_url( $src ) . '" title="Map showing ' . esc_attr( $atts['address'] ) . '" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>'
 		. '<p class="brra-map__link"><a href="' . esc_url( $link ) . '" target="_blank" rel="noreferrer noopener">Open in Google Maps for directions</a></p>';
+}
+
+/**
+ * [brra_venue agm="..."]: a box with three tabs (session details, getting here, parking).
+ * Without JavaScript all three panels show, one under the other.
+ *
+ * @param array $atts Shortcode attributes.
+ */
+function brra_shortcode_venue( $atts ) {
+	$atts = shortcode_atts( array( 'agm' => 'Thursday 27 May 2027 (provisional)' ), $atts );
+	static $n = 0;
+	++$n;
+	$id   = 'brra-venue-' . $n;
+	$tabs = array(
+		'session' => array(
+			'Session details',
+			'<dl><dt>Monthly Development Session</dt><dd>First Thursday of the month. Doors 7.00pm, start 7.30pm.</dd>'
+			. ( $atts['agm'] ? '<dt>AGM</dt><dd>' . esc_html( $atts['agm'] ) . '</dd>' : '' )
+			. '<dt>Where</dt><dd>St Mary&#8217;s Social Club, Pine Street, Radcliffe, M26 2WQ</dd></dl>',
+		),
+		'travel'  => array(
+			'How to get here',
+			'<dl><dt>Tram</dt><dd>Radcliffe Metrolink stop is a 5-minute walk. Leave the car park onto Spring Lane and turn right, turn left onto Bury Road, then right onto Pine Street. St Mary&#8217;s Social Club is on Pine Street.</dd>'
+			. '<dt>Bus</dt><dd>Buses from Bury, Bolton and Radcliffe Bus Station pass close by, including the 98. Check <a href="https://tfgm.com/" target="_blank" rel="noopener">TfGM</a> for routes and times.</dd></dl>',
+		),
+		'parking' => array(
+			'Parking',
+			'<dl><dt>Street parking</dt><dd>Limited street parking is available on Pine Street and the surrounding streets. Please park considerately, and allow a few extra minutes to find a space.</dd>'
+			. '<dt>No car?</dt><dd>Radcliffe Metrolink is a 5-minute walk away. See <em>How to get here</em>.</dd></dl>',
+		),
+	);
+	$out = '<div class="brra-venue" id="' . esc_attr( $id ) . '"><div class="brra-venue__tabs" role="tablist" aria-label="Visiting St Mary&#8217;s" hidden>';
+	$i   = 0;
+	foreach ( $tabs as $key => $t ) {
+		$out .= '<button type="button" role="tab" id="' . esc_attr( "$id-$key-tab" ) . '" aria-controls="' . esc_attr( "$id-$key" ) . '" aria-selected="' . ( 0 === $i ? 'true' : 'false' ) . '"' . ( 0 === $i ? '' : ' tabindex="-1"' ) . '>' . esc_html( $t[0] ) . '</button>';
+		++$i;
+	}
+	$out .= '</div>';
+	foreach ( $tabs as $key => $t ) {
+		$out .= '<div class="brra-venue__panel" role="tabpanel" id="' . esc_attr( "$id-$key" ) . '" aria-labelledby="' . esc_attr( "$id-$key-tab" ) . '"><h3 class="brra-venue__nojs">' . esc_html( $t[0] ) . '</h3>' . $t[1] . '</div>';
+	}
+	$out .= '</div>';
+	if ( 1 === $n ) {
+		$out .= '<script>document.querySelectorAll(".brra-venue").forEach(function(v){var tl=v.querySelector("[role=tablist]"),b=[].slice.call(tl.children),p=v.querySelectorAll("[role=tabpanel]");v.classList.add("is-js");tl.hidden=false;function go(i,f){b.forEach(function(x,j){x.setAttribute("aria-selected",j===i);x.tabIndex=j===i?0:-1;p[j].hidden=j!==i;});if(f)b[i].focus();}b.forEach(function(x,i){x.addEventListener("click",function(){go(i);});x.addEventListener("keydown",function(e){var k=e.key==="ArrowRight"?1:e.key==="ArrowLeft"?-1:0;if(k){e.preventDefault();go((i+k+b.length)%b.length,true);}});});go(0);});</script>';
+	}
+	return $out;
 }

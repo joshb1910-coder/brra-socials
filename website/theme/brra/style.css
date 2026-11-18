@@ -345,3 +345,23 @@ a.brra-card-link:hover .brra-card-title { text-decoration: underline; }
 @media (max-width: 781px) {
 	.brra-next__img { border-radius: 10px 10px 0 0; }
 }
+
+/* Visiting St Mary's: tabbed box ([brra_venue]) */
+.brra-venue { border: 1px solid var(--wp--preset--color--line); border-top: 3px solid var(--wp--preset--color--gold); border-radius: 10px; background: #fff; overflow: hidden; margin: 0 0 24px; }
+.brra-venue__tabs { display: flex; gap: 6px; padding: 10px; background: var(--wp--preset--color--mist); border-bottom: 1px solid var(--wp--preset--color--line); flex-wrap: wrap; }
+.brra-venue__tabs[hidden] { display: none; }
+.brra-venue__tabs button { flex: 1 1 0; min-width: 0; font: inherit; font-weight: 700; font-size: 14px; padding: 11px 12px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--wp--preset--color--navy); cursor: pointer; line-height: 1.25; }
+.brra-venue__tabs button:hover { background: rgba(255,255,255,.7); }
+.brra-venue__tabs button[aria-selected="true"] { background: var(--wp--preset--color--navy); color: #fff; box-shadow: inset 0 -3px 0 var(--wp--preset--color--gold); }
+.brra-venue__tabs button:focus-visible { outline: 3px solid var(--wp--preset--color--gold); outline-offset: 2px; }
+.brra-venue__panel { padding: 22px 24px 8px; font-size: 15px; }
+.brra-venue__panel[hidden] { display: none; }
+.brra-venue.is-js .brra-venue__nojs { display: none; }
+.brra-venue__nojs { font-size: 17px; margin: 0 0 8px; }
+.brra-venue dl { margin: 0; }
+.brra-venue dt { font-weight: 700; color: var(--wp--preset--color--navy); margin: 0 0 4px; }
+.brra-venue dd { margin: 0 0 16px; line-height: 1.6; }
+@media (max-width: 600px) {
+	.brra-venue__tabs button { font-size: 13px; padding: 10px 6px; }
+	.brra-venue__panel { padding: 18px 16px 4px; }
+}
