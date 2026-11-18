@@ -447,6 +447,9 @@ foreach ( $brra_media as $brra_key => $brra_id ) {
 // On a real site, links and images in page content are stored without the domain, so they keep
 // working when the site moves from Hostinger's temporary address to buryrefs.org.uk.
 // (Playground serves the site under a sub-path, so the demo keeps full addresses.)
+// Newsletter sign-ups go on to the newsletter@ mailing list on webmail (off on the test site).
+update_option( 'brra_mailman_url', ( defined( 'BRRA_DEMO' ) && BRRA_DEMO ) ? '' : 'https://webmail.buryrefs.org.uk/3rdparty/mailman/subscribe/newsletter_buryrefs.org.uk' );
+
 if ( ! ( defined( 'BRRA_DEMO' ) && BRRA_DEMO ) ) {
 	foreach ( $brra_tokens as $brra_k => $brra_v ) {
 		if ( is_string( $brra_v ) && 0 === strpos( $brra_v, 'http' ) ) {

@@ -26,7 +26,38 @@ function brra_newsletter_add( $email, $name = '', $source = 'website' ) {
 	if ( $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $table WHERE email = %s", $email ) ) ) { // phpcs:ignore WordPress.DB
 		return false;
 	}
-	return (bool) $wpdb->insert( $table, array( 'email' => $email, 'name' => $name, 'source' => $source, 'created' => current_time( 'mysql' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	$added = (bool) $wpdb->insert( $table, array( 'email' => $email, 'name' => $name, 'source' => $source, 'created' => current_time( 'mysql' ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+	if ( $added ) {
+		brra_newsletter_forward( $email, $name );
+	}
+	return $added;
+}
+
+/**
+ * Pass a sign-up to the newsletter@ mailing list on webmail, which emails the person a link to confirm.
+ * The address is set under Users > Newsletter list; blank turns it off (as on the test site).
+ *
+ * @param string $email Email.
+ * @param string $name  Name.
+ */
+function brra_newsletter_forward( $email, $name ) {
+	$url = get_option( 'brra_mailman_url', '' );
+	if ( ! $url ) {
+		return;
+	}
+	wp_remote_post(
+		$url,
+		array(
+			'timeout'  => 8,
+			'blocking' => false,
+			'body'     => array(
+				'email'        => $email,
+				'fullname'     => $name,
+				'digest'       => '0',
+				'email-button' => 'Subscribe',
+			),
+		)
+	);
 }
 
 add_action(
@@ -49,7 +80,7 @@ function brra_shortcode_newsletter() {
 			<p>Guest speakers, socials and referee courses, straight to your inbox about once a month. Free, and you don't need to be a member.</p>
 		</div>
 		<?php if ( $done ) : ?>
-			<p class="brra-notice">Thanks, you're signed up. Look out for our next email.</p>
+			<p class="brra-notice">Nearly done! Check your inbox for an email with a link to confirm.</p>
 		<?php else : ?>
 			<form class="brra-newsletter__form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="brra_newsletter">
@@ -61,7 +92,7 @@ function brra_shortcode_newsletter() {
 				<input id="nl_email" type="email" name="nl_email" placeholder="Email address" required autocomplete="email">
 				<input type="text" name="nl_website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
 				<button class="brra-btn is-gold" type="submit">Sign me up</button>
-				<small>Unsubscribe any time by replying "unsubscribe" to any email. See our <a href="<?php echo esc_url( get_privacy_policy_url() ); ?>">privacy notice</a>.</small>
+				<small>We'll email you a link to confirm. You can unsubscribe at any time. See our <a href="<?php echo esc_url( get_privacy_policy_url() ); ?>">privacy notice</a>.</small>
 			</form>
 		<?php endif; ?>
 	</div>
@@ -112,7 +143,15 @@ function brra_newsletter_page() {
 	$table = brra_subscribers_table();
 	$rows  = $wpdb->get_results( "SELECT * FROM $table ORDER BY created DESC" ); // phpcs:ignore WordPress.DB
 	echo '<div class="wrap"><h1>Newsletter list</h1>';
-	echo '<p>People who signed up on the website, plus guests who said they\'re happy to be contacted when they checked in at an event. Members get the members\' emails as usual. <strong>' . count( $rows ) . '</strong> on the list.</p>';
+	if ( isset( $_POST['brra_mailman_url'] ) && check_admin_referer( 'brra_mailman_url' ) ) {
+		update_option( 'brra_mailman_url', esc_url_raw( wp_unslash( $_POST['brra_mailman_url'] ) ) );
+		echo '<div class="notice notice-success inline"><p>Saved.</p></div>';
+	}
+	echo '<p>People who signed up on the website, everyone who joins or renews online, and guests who said they\'re happy to be contacted when they checked in at an event. <strong>' . count( $rows ) . '</strong> on the list.</p>';
+	echo '<p>Each new sign-up is also passed to the newsletter@ mailing list on webmail, which emails them a link to confirm. Only people who confirm get the newsletter from there; this page keeps a copy of everyone who signed up.</p>';
+	echo '<form method="post" style="margin:12px 0 20px">';
+	wp_nonce_field( 'brra_mailman_url' );
+	echo '<label for="brra_mailman_url"><strong>Mailing list sign-up address</strong> (from webmail; leave blank to turn off)</label><br><input type="url" id="brra_mailman_url" name="brra_mailman_url" style="width:100%;max-width:700px" value="' . esc_attr( get_option( 'brra_mailman_url', '' ) ) . '"> <button class="button">Save</button></form>';
 	if ( isset( $_GET['removed'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
 		echo '<div class="notice notice-success inline"><p>Removed.</p></div>';
 	}
@@ -121,13 +160,13 @@ function brra_newsletter_page() {
 		return;
 	}
 	$emails = implode( ', ', wp_list_pluck( $rows, 'email' ) );
-	echo '<h2>To send an email</h2><p>Log in to newsletter@buryrefs.org.uk, start a new email to yourself and paste these addresses into <strong>Bcc</strong>, so nobody sees anyone else\'s address.</p>';
+	echo '<h2>Everyone\'s addresses</h2><p>If you ever need to email them yourself, paste these into <strong>Bcc</strong> so nobody sees anyone else\'s address.</p>';
 	echo '<textarea readonly rows="4" style="width:100%;max-width:900px" onclick="this.select()">' . esc_textarea( $emails ) . '</textarea>';
 	echo '<p><a class="button" href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=brra_newsletter_csv' ), 'brra_newsletter_csv' ) ) . '">Download as a spreadsheet</a></p>';
 	echo '<h2>Everyone on the list</h2><p>If someone replies "unsubscribe", remove them here.</p><table class="widefat striped" style="max-width:900px"><thead><tr><th>Email</th><th>Name</th><th>Signed up</th><th>From</th><th></th></tr></thead><tbody>';
 	foreach ( $rows as $r ) {
 		$del = wp_nonce_url( admin_url( 'admin-post.php?action=brra_newsletter_remove&id=' . $r->id ), 'brra_newsletter_remove' );
-		echo '<tr><td>' . esc_html( $r->email ) . '</td><td>' . esc_html( $r->name ) . '</td><td>' . esc_html( mysql2date( 'j M Y', $r->created ) ) . '</td><td>' . ( 'guest' === $r->source ? 'Event guest' : 'Website' ) . '</td><td><a href="' . esc_url( $del ) . '">Remove</a></td></tr>';
+		echo '<tr><td>' . esc_html( $r->email ) . '</td><td>' . esc_html( $r->name ) . '</td><td>' . esc_html( mysql2date( 'j M Y', $r->created ) ) . '</td><td>' . ( 'guest' === $r->source ? 'Event guest' : ( 'member' === $r->source ? 'New member' : 'Website' ) ) . '</td><td><a href="' . esc_url( $del ) . '">Remove</a></td></tr>';
 	}
 	echo '</tbody></table></div>';
 }
@@ -163,9 +202,20 @@ add_action(
 		fwrite( $out, "\xEF\xBB\xBF" );
 		fputcsv( $out, array( 'Email', 'Name', 'Signed up', 'From' ) );
 		foreach ( $rows as $r ) {
-			fputcsv( $out, array( $r->email, $r->name, $r->created, 'guest' === $r->source ? 'Event guest' : 'Website' ) );
+			fputcsv( $out, array( $r->email, $r->name, $r->created, 'guest' === $r->source ? 'Event guest' : ( 'member' === $r->source ? 'New member' : 'Website' ) ) );
 		}
 		fclose( $out ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 		exit;
+	}
+);
+
+// Everyone who joins or renews online goes on the newsletter list too (the mailing list emails them a link to confirm).
+add_action(
+	'pmpro_after_checkout',
+	function ( $user_id ) {
+		$user = get_userdata( $user_id );
+		if ( $user ) {
+			brra_newsletter_add( $user->user_email, $user->first_name, 'member' );
+		}
 	}
 );
