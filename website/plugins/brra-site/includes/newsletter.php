@@ -68,15 +68,18 @@ add_action(
 );
 
 /**
- * [brra_newsletter] sign-up box.
+ * [brra_newsletter title="..." style="light"] sign-up box.
+ *
+ * @param array $atts Shortcode attributes.
  */
-function brra_shortcode_newsletter() {
+function brra_shortcode_newsletter( $atts = array() ) {
+	$atts = shortcode_atts( array( 'title' => 'Get our event news', 'style' => '' ), $atts );
 	$done = isset( $_GET['newsletter'] ) && 'thanks' === $_GET['newsletter']; // phpcs:ignore WordPress.Security.NonceVerification
 	ob_start();
 	?>
-	<div class="brra-newsletter" id="newsletter">
+	<div class="brra-newsletter<?php echo 'light' === $atts['style'] ? ' is-light' : ''; ?>" id="newsletter">
 		<div class="brra-newsletter__text">
-			<h2>Get our event news</h2>
+			<h2><?php echo esc_html( $atts['title'] ); ?></h2>
 			<p>Guest speakers, socials and referee courses, straight to your inbox about once a month. Free, and you don't need to be a member.</p>
 		</div>
 		<?php if ( $done ) : ?>
