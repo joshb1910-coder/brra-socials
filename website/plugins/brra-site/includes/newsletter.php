@@ -87,7 +87,9 @@ function brra_shortcode_newsletter() {
 				<input type="hidden" name="back" value="<?php echo esc_attr( get_permalink() ); ?>">
 				<?php wp_nonce_field( 'brra_newsletter' ); ?>
 				<label class="screen-reader-text" for="nl_name">First name</label>
-				<input id="nl_name" type="text" name="nl_name" placeholder="First name" autocomplete="given-name">
+				<input id="nl_name" type="text" name="nl_name" placeholder="First name" required autocomplete="given-name">
+				<label class="screen-reader-text" for="nl_last">Last name</label>
+				<input id="nl_last" type="text" name="nl_last" placeholder="Last name" required autocomplete="family-name">
 				<label class="screen-reader-text" for="nl_email">Email</label>
 				<input id="nl_email" type="email" name="nl_email" placeholder="Email address" required autocomplete="email">
 				<input type="text" name="nl_website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
@@ -117,7 +119,7 @@ function brra_handle_newsletter() {
 			set_transient( $limit, $count + 1, HOUR_IN_SECONDS );
 			brra_newsletter_add(
 				isset( $_POST['nl_email'] ) ? sanitize_email( wp_unslash( $_POST['nl_email'] ) ) : '',
-				isset( $_POST['nl_name'] ) ? sanitize_text_field( wp_unslash( $_POST['nl_name'] ) ) : ''
+				trim( ( isset( $_POST['nl_name'] ) ? sanitize_text_field( wp_unslash( $_POST['nl_name'] ) ) : '' ) . ' ' . ( isset( $_POST['nl_last'] ) ? sanitize_text_field( wp_unslash( $_POST['nl_last'] ) ) : '' ) )
 			);
 		}
 	}
@@ -215,7 +217,7 @@ add_action(
 	function ( $user_id ) {
 		$user = get_userdata( $user_id );
 		if ( $user ) {
-			brra_newsletter_add( $user->user_email, $user->first_name, 'member' );
+			brra_newsletter_add( $user->user_email, trim( $user->first_name . ' ' . $user->last_name ), 'member' );
 		}
 	}
 );

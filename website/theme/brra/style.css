@@ -316,11 +316,11 @@ a.brra-card-link:hover .brra-card-title { text-decoration: underline; }
 .brra-form label.brra-check input { width: 20px; height: 20px; margin: 2px 0 0; padding: 0; flex: none; }
 
 /* Newsletter sign-up box. */
-.brra-newsletter { background: var(--wp--preset--color--navy); color: #fff; border-radius: 10px; border-top: 4px solid var(--wp--preset--color--gold); padding: 32px 36px; display: grid; grid-template-columns: 1fr 1.15fr; gap: 24px 36px; align-items: center; }
+.brra-newsletter { background: var(--wp--preset--color--navy); color: #fff; border-radius: 10px; border-top: 4px solid var(--wp--preset--color--gold); padding: 32px 36px; display: grid; grid-template-columns: 1fr; gap: 20px; }
 .brra-newsletter h2 { color: #fff; margin: 0 0 8px; font-size: 26px; }
-.brra-newsletter p { margin: 0; color: #CFD8E3; }
+.brra-newsletter p { margin: 0; color: #CFD8E3; max-width: 720px; }
 .brra-newsletter__form { display: flex; flex-wrap: wrap; gap: 10px; }
-.brra-newsletter__form input { flex: 1 1 170px; min-width: 0; font: inherit; font-size: 16px; padding: 12px 14px; border: 0; border-radius: 6px; }
+.brra-newsletter__form input { flex: 1 1 200px; min-width: 0; font: inherit; font-size: 16px; padding: 12px 14px; border: 0; border-radius: 6px; }
 .brra-newsletter__form small { flex-basis: 100%; color: #CFD8E3; font-size: 13px; }
 .brra-newsletter__form small a { color: var(--wp--preset--color--gold); }
 @media (max-width: 781px) {
