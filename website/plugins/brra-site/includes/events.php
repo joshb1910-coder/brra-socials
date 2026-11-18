@@ -172,6 +172,53 @@ function brra_event_ics_url( $post_id ) {
 }
 
 /**
+ * "Add to calendar" menu: Google, Outlook.com, and a calendar file for Apple, Outlook and others.
+ *
+ * @param int    $post_id     Event ID.
+ * @param string $button_cls  Extra classes for the button.
+ */
+function brra_event_calendar_menu( $post_id, $button_cls = 'is-ghost' ) {
+	$start = brra_event_time( $post_id );
+	if ( ! $start ) {
+		return '';
+	}
+	$end   = brra_event_time( $post_id, 'end' );
+	$end   = ( $end && $end > $start ) ? $end : $start->modify( '+2 hours' );
+	$utc   = new DateTimeZone( 'UTC' );
+	$title = html_entity_decode( get_the_title( $post_id ), ENT_QUOTES );
+	$where = brra_event_get( $post_id, 'location' );
+	$about = get_permalink( $post_id );
+	$google = add_query_arg(
+		array(
+			'action'   => 'TEMPLATE',
+			'text'     => rawurlencode( $title ),
+			'dates'    => $start->setTimezone( $utc )->format( 'Ymd\THis\Z' ) . '/' . $end->setTimezone( $utc )->format( 'Ymd\THis\Z' ),
+			'location' => rawurlencode( $where ),
+			'details'  => rawurlencode( $about ),
+		),
+		'https://calendar.google.com/calendar/render'
+	);
+	$outlook = add_query_arg(
+		array(
+			'path'     => rawurlencode( '/calendar/action/compose' ),
+			'rru'      => 'addevent',
+			'subject'  => rawurlencode( $title ),
+			'startdt'  => rawurlencode( $start->setTimezone( $utc )->format( 'Y-m-d\TH:i:s\Z' ) ),
+			'enddt'    => rawurlencode( $end->setTimezone( $utc )->format( 'Y-m-d\TH:i:s\Z' ) ),
+			'location' => rawurlencode( $where ),
+			'body'     => rawurlencode( $about ),
+		),
+		'https://outlook.live.com/calendar/0/action/compose'
+	);
+	$out  = '<details class="brra-cal"><summary class="brra-btn ' . esc_attr( $button_cls ) . '">Add to calendar</summary><span class="brra-cal__menu">';
+	$out .= '<a href="' . esc_url( $google ) . '" target="_blank" rel="noopener">Google Calendar</a>';
+	$out .= '<a href="' . esc_url( brra_event_ics_url( $post_id ) ) . '">Apple Calendar</a>';
+	$out .= '<a href="' . esc_url( brra_event_ics_url( $post_id ) ) . '">Outlook (desktop app)</a>';
+	$out .= '<a href="' . esc_url( $outlook ) . '" target="_blank" rel="noopener">Outlook.com or Hotmail</a>';
+	return $out . '</span></details>';
+}
+
+/**
  * [brra_next_event compact="1"]
  *
  * @param array $atts Shortcode attributes.
@@ -208,13 +255,13 @@ function brra_shortcode_next_event( $atts ) {
 				<?php if ( $compact ) : ?>
 					<a class="brra-btn is-ghost" href="<?php echo esc_url( get_permalink( $e ) ); ?>">Event details</a>
 				<?php else : ?>
-					<a class="brra-btn is-ghost" href="<?php echo esc_url( brra_event_ics_url( $e->ID ) ); ?>">Add to calendar</a>
+					<?php echo brra_event_calendar_menu( $e->ID ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
 				<?php endif; ?>
 			</div>
 		</div>
 	</div>
 	<?php
-	return ob_get_clean();
+	return preg_replace( '/>\s+</', '><', ob_get_clean() );
 }
 
 /**
@@ -292,7 +339,7 @@ function brra_shortcode_event_details() {
 	$out .= '<div><small>TIME</small>' . esc_html( brra_event_times_text( $id ) ) . '</div>';
 	$out .= '<div><small>WHERE</small>' . esc_html( brra_event_get( $id, 'location' ) ) . '</div>';
 	$out .= '</div>';
-	$out .= '<p style="margin-top:20px"><a class="brra-btn is-gold" href="' . esc_url( brra_event_ics_url( $id ) ) . '">Add to calendar</a> <a class="brra-btn is-ghost" style="border-color:#fff;color:#fff" href="https://www.google.com/maps/search/?api=1&amp;query=' . rawurlencode( brra_event_get( $id, 'location' ) ) . '">Directions</a></p>';
+	$out .= '<div class="brra-event-actions" style="margin-top:20px">' . brra_event_calendar_menu( $id, 'is-gold' ) . '<a class="brra-btn is-ghost" style="border-color:#fff;color:#fff" href="https://www.google.com/maps/search/?api=1&amp;query=' . rawurlencode( brra_event_get( $id, 'location' ) ) . '">Directions</a></div>';
 	return $out;
 }
 
@@ -309,13 +356,33 @@ function brra_shortcode_rsvp() {
 		return '<p>This event has finished.</p>';
 	}
 	$list  = get_post_meta( $id, '_brra_rsvps', true );
-	$count = is_array( $list ) ? count( $list ) : 0;
+	$list  = is_array( $list ) ? $list : array();
+	$count = count( $list );
 	$done  = isset( $_GET['rsvp'] ) && 'thanks' === $_GET['rsvp']; // phpcs:ignore WordPress.Security.NonceVerification
+	$user  = wp_get_current_user();
+	$mine  = $user->exists() && isset( $list[ strtolower( $user->user_email ) ] );
 	ob_start();
 	?>
 	<div class="brra-rsvp" id="rsvp">
 		<h2 style="margin:0;font-size:24px">Coming along?</h2>
-		<?php if ( $done ) : ?>
+		<?php if ( $user->exists() ) : ?>
+			<?php if ( $mine ) : ?>
+				<p class="brra-notice">You're on the list, <?php echo esc_html( $user->first_name ? $user->first_name : $user->display_name ); ?>. See you there.</p>
+			<?php else : ?>
+				<p style="margin:0">Let us know so we can plan food and seating. One tap, and we'll use the name and email on your account.</p>
+			<?php endif; ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin:0">
+				<input type="hidden" name="action" value="brra_rsvp">
+				<input type="hidden" name="event" value="<?php echo esc_attr( $id ); ?>">
+				<?php wp_nonce_field( 'brra_rsvp_' . $id ); ?>
+				<?php if ( $mine ) : ?>
+					<input type="hidden" name="rsvp_cancel" value="1">
+					<button class="brra-btn is-ghost" type="submit">I can't make it now</button>
+				<?php else : ?>
+					<button class="brra-btn" type="submit">I'm going</button>
+				<?php endif; ?>
+			</form>
+		<?php elseif ( $done ) : ?>
 			<p class="brra-notice">Thanks, you're on the list. See you there.</p>
 		<?php else : ?>
 			<p style="margin:0">Let us know so we can plan food and seating. Members and non-members are welcome.</p>
@@ -350,12 +417,26 @@ function brra_handle_rsvp() {
 		wp_safe_redirect( get_permalink( $id ) );
 		exit;
 	}
-	$name  = isset( $_POST['rsvp_name'] ) ? sanitize_text_field( wp_unslash( $_POST['rsvp_name'] ) ) : '';
-	$email = isset( $_POST['rsvp_email'] ) ? sanitize_email( wp_unslash( $_POST['rsvp_email'] ) ) : '';
+	$user = wp_get_current_user();
+	if ( $user->exists() ) {
+		// Easy RSVP: logged-in members use the name and email on their account.
+		$name  = trim( $user->first_name . ' ' . $user->last_name );
+		$name  = $name ? $name : $user->display_name;
+		$email = $user->user_email;
+	} else {
+		$name  = isset( $_POST['rsvp_name'] ) ? sanitize_text_field( wp_unslash( $_POST['rsvp_name'] ) ) : '';
+		$email = isset( $_POST['rsvp_email'] ) ? sanitize_email( wp_unslash( $_POST['rsvp_email'] ) ) : '';
+	}
+	$list = get_post_meta( $id, '_brra_rsvps', true );
+	$list = is_array( $list ) ? $list : array();
+	if ( $user->exists() && ! empty( $_POST['rsvp_cancel'] ) ) {
+		unset( $list[ strtolower( $email ) ] );
+		update_post_meta( $id, '_brra_rsvps', $list );
+		wp_safe_redirect( get_permalink( $id ) . '#rsvp' );
+		exit;
+	}
 	if ( $name && is_email( $email ) ) {
-		$list = get_post_meta( $id, '_brra_rsvps', true );
-		$list = is_array( $list ) ? $list : array();
-		$list[ strtolower( $email ) ] = array( 'name' => $name, 'email' => $email, 'at' => current_time( 'mysql' ) );
+		$list[ strtolower( $email ) ] = array( 'name' => $name, 'email' => $email, 'at' => current_time( 'mysql' ), 'user_id' => $user->ID );
 		update_post_meta( $id, '_brra_rsvps', $list );
 	}
 	wp_safe_redirect( add_query_arg( 'rsvp', 'thanks', get_permalink( $id ) ) . '#rsvp' );
