@@ -348,11 +348,15 @@ a.brra-card-link:hover .brra-card-title { text-decoration: underline; }
 
 /* Visiting St Mary's: tabbed box ([brra_venue]) */
 .brra-venue { border: 1px solid var(--wp--preset--color--line); border-top: 3px solid var(--wp--preset--color--gold); border-radius: 10px; background: #fff; overflow: hidden; margin: 0 0 24px; }
-.brra-venue__tabs { display: flex; gap: 6px; padding: 10px; background: var(--wp--preset--color--mist); border-bottom: 1px solid var(--wp--preset--color--line); flex-wrap: wrap; }
+.brra-venue__tabs { position: relative; display: flex; gap: 6px; padding: 10px; background: var(--wp--preset--color--mist); border-bottom: 1px solid var(--wp--preset--color--line); flex-wrap: wrap; }
 .brra-venue__tabs[hidden] { display: none; }
-.brra-venue__tabs button { flex: 1 1 0; min-width: 0; font: inherit; font-weight: 700; font-size: 14px; padding: 11px 12px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--wp--preset--color--navy); cursor: pointer; line-height: 1.25; }
+.brra-venue__tabs button { flex: 1 1 0; min-width: 0; font: inherit; font-weight: 700; font-size: 14px; padding: 11px 12px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--wp--preset--color--navy); cursor: pointer; line-height: 1.25; position: relative; z-index: 1; transition: color .25s ease; }
 .brra-venue__tabs button:hover { background: rgba(255,255,255,.7); }
-.brra-venue__tabs button[aria-selected="true"] { background: var(--wp--preset--color--navy); color: #fff; box-shadow: inset 0 -3px 0 var(--wp--preset--color--gold); }
+.brra-venue__tabs button[aria-selected="true"] { color: #fff; }
+.brra-venue__tabs button[aria-selected="true"]:hover { background: transparent; }
+.brra-venue__pill { position: absolute; top: 0; left: 0; border-radius: 7px; background: var(--wp--preset--color--navy); pointer-events: none; }
+.brra-venue.is-ready .brra-venue__pill { transition: transform .3s cubic-bezier(.4,0,.2,1), width .3s cubic-bezier(.4,0,.2,1), height .3s cubic-bezier(.4,0,.2,1); }
+@media (prefers-reduced-motion: reduce) { .brra-venue.is-ready .brra-venue__pill, .brra-venue__tabs button { transition: none; } }
 .brra-venue__tabs button:focus-visible { outline: 3px solid var(--wp--preset--color--gold); outline-offset: 2px; }
 .brra-venue__panel { padding: 22px 24px 8px; font-size: 15px; }
 .brra-venue__panel[hidden] { display: none; }
