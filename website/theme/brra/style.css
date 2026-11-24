@@ -369,3 +369,14 @@ a.brra-card-link:hover .brra-card-title { text-decoration: underline; }
 	.brra-venue__tabs button { font-size: 13px; padding: 10px 6px; }
 	.brra-venue__panel { padding: 18px 16px 4px; }
 }
+
+/* Smooth page changes: the browser cross-fades between pages and keeps the header still,
+   instead of blanking the screen. Each page keeps its own URL. Browsers that don't support
+   this simply load pages as normal. */
+@view-transition { navigation: auto; }
+.brra-header { view-transition-name: brra-header; }
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 0.2s; }
+@media (prefers-reduced-motion: reduce) {
+	@view-transition { navigation: none; }
+}

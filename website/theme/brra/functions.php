@@ -45,3 +45,19 @@ add_action(
 function brra_asset( $path ) {
 	return esc_url( get_theme_file_uri( 'assets/' . $path ) );
 }
+
+/*
+ * Fetch a page in the background when the visitor rests the pointer on (or starts tapping) a link,
+ * so it is usually ready by the time they click. Only pages they're about to open are fetched,
+ * so the server does no extra work for pages nobody visits. Needs WordPress 6.8 or later.
+ */
+add_filter(
+	'wp_speculation_rules_configuration',
+	function ( $config ) {
+		if ( is_array( $config ) ) {
+			$config['mode']      = 'prefetch';
+			$config['eagerness'] = 'moderate';
+		}
+		return $config;
+	}
+);
