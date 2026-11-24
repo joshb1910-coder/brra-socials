@@ -348,7 +348,7 @@ function brra_c_action_rows( $actions, $show_owner, $back ) {
  */
 function brra_c_view_meetings() {
 	brra_c_head( 'Meetings', 'Minutes and agendas', '', 'Every committee meeting, newest first. Open one to read the agenda or the minutes.' );
-	echo '<div class="bc-grid bc-g2w"><div class="bc-card"><table class="bc-table"><thead><tr><th>Meeting</th><th>Status</th><th></th></tr></thead><tbody>';
+	echo '<div class="bc-grid bc-g2w"><div><div class="bc-card"><table class="bc-table"><thead><tr><th>Meeting</th><th>Status</th><th></th></tr></thead><tbody>';
 	$all = brra_meetings();
 	foreach ( $all as $m ) {
 		$st    = brra_meeting_status_label( $m['status'] );
@@ -366,7 +366,9 @@ function brra_c_view_meetings() {
 		echo '<tr><td><strong>' . brra_e( brra_c_date( $m['date'] ) ) . '</strong><div class="bc-muted">' . brra_e( brra_c_time( $m['time'] ) . ', ' . strtok( $m['venue'], ',' ) ) . '</div></td><td>' . brra_pill( $st[0], $st[1] ) . '</td><td class="bc-links">' . implode( ' · ', $links ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput
 	}
 	echo $all ? '' : '<tr><td colspan="3" class="bc-muted">No meetings yet.</td></tr>';
-	echo '</tbody></table></div><div>';
+	echo '</tbody></table></div>';
+	brra_committee_attendance_card( $all );
+	echo '</div><div>';
 	if ( brra_can_manage_minutes() ) {
 		$last = $all ? $all[0]['date'] : current_time( 'Y-m-d' );
 		$sugg = gmdate( 'Y-m-d', strtotime( $last . ' +4 weeks' ) );
@@ -377,6 +379,46 @@ function brra_c_view_meetings() {
 		echo '<div class="bc-card"><h3>Raise something for AOB</h3><p class="bc-muted">It goes on the list for any other business at the next meeting.</p>' . brra_c_form( 'aob', array(), 'class="bc-form"' ) . '<input type="text" name="title" placeholder="What would you like to raise?" required><button class="bc-btn is-ghost">Send to the Secretary</button></form></div>'; // phpcs:ignore WordPress.Security.EscapeOutput
 	}
 	echo '</div></div>';
+}
+
+/**
+ * Committee attendance this season: present, apologies and absent per person.
+ *
+ * @param array $all All meetings, newest first.
+ */
+function brra_committee_attendance_card( $all ) {
+	$season = brra_current_season();
+	$from   = $season[0] . '-06-01';
+	$to     = $season[1] . '-05-31';
+	$held   = array_filter(
+		$all,
+		function ( $m ) use ( $from, $to ) {
+			return in_array( $m['status'], array( 'open', 'closed', 'approved' ), true ) && $m['date'] >= $from && $m['date'] <= $to;
+		}
+	);
+	echo '<div class="bc-card"><h3>Committee attendance, ' . (int) $season[0] . '/' . brra_e( substr( (string) $season[1], 2 ) ) . '</h3>';
+	if ( ! $held ) {
+		echo '<p class="bc-muted">No meetings held yet this season.</p></div>';
+		return;
+	}
+	echo '<p class="bc-muted">' . count( $held ) . ' ' . ( 1 === count( $held ) ? 'meeting' : 'meetings' ) . ' held this season.</p><table class="bc-table"><thead><tr><th>Name</th><th>Present</th><th>Apologies</th><th>Absent</th><th>Attendance</th></tr></thead><tbody>';
+	foreach ( brra_committee_people() as $u ) {
+		$c = array(
+			'present'   => 0,
+			'apologies' => 0,
+			'absent'    => 0,
+		);
+		foreach ( $held as $m ) {
+			$v = isset( $m['att'][ $u->ID ] ) ? $m['att'][ $u->ID ] : '';
+			if ( isset( $c[ $v ] ) ) {
+				++$c[ $v ];
+			}
+		}
+		$n   = array_sum( $c );
+		$pct = $n ? round( 100 * $c['present'] / $n ) : 0;
+		echo '<tr><td>' . brra_e( brra_c_name( $u->ID ) ) . '</td><td>' . (int) $c['present'] . '</td><td>' . (int) $c['apologies'] . '</td><td>' . ( $c['absent'] ? '<strong style="color:#b42318">' . (int) $c['absent'] . '</strong>' : '0' ) . '</td><td>' . ( $n ? (int) $pct . '%' : '<span class="bc-muted">n/a</span>' ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput
+	}
+	echo '</tbody></table></div>';
 }
 
 // ---------------------------------------------------------------- Agenda builder.
