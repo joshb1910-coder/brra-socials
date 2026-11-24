@@ -124,6 +124,16 @@ function brra_can_manage_committee( $uid = null ) {
 }
 
 /**
+ * Can this person add or delete committee meetings? Secretary and Chairman (and site admins) only.
+ *
+ * @param int|null $uid User.
+ */
+function brra_can_add_meetings( $uid = null ) {
+	$uid = brra_c_user( $uid );
+	return $uid && ( user_can( $uid, 'manage_options' ) || brra_has_committee_role( 'secretary', $uid ) || brra_has_committee_role( 'chair', $uid ) );
+}
+
+/**
  * Can this person see members' names and emails? Membership Secretary and Secretary (and admins).
  *
  * @param int|null $uid User ID.
@@ -543,6 +553,38 @@ function brra_meeting_save( $m ) {
 }
 
 /**
+ * The season a meeting belongs to (start year). Worked out from the date unless set by hand.
+ *
+ * @param array $m Meeting.
+ */
+function brra_meeting_season( $m ) {
+	if ( ! empty( $m['season'] ) ) {
+		return (int) $m['season'];
+	}
+	return (int) brra_current_season( $m['date'] ? strtotime( $m['date'] . ' 12:00' ) : null )[0];
+}
+
+/**
+ * A season as "2026/27".
+ *
+ * @param int $s Season start year.
+ */
+function brra_season_label( $s ) {
+	return (int) $s . '/' . substr( (string) ( (int) $s + 1 ), 2 );
+}
+
+/**
+ * The season asked for in the address (or this season).
+ *
+ * @param string $key Query key.
+ */
+function brra_c_season_in( $key = 'season' ) {
+	$cur = (int) brra_current_season()[0];
+	$s   = absint( brra_c_in( $key, (string) $cur ) );
+	return $s > 1990 && $s < 2200 ? $s : $cur;
+}
+
+/**
  * All meetings, newest first.
  */
 function brra_meetings() {
@@ -674,7 +716,7 @@ function brra_all_actions( $open_only = false ) {
  * Create a meeting from the standing items, carrying forward open actions and AOB suggestions.
  */
 function brra_c_do_meeting_new() {
-	if ( ! brra_can_manage_minutes() ) {
+	if ( ! brra_can_add_meetings() ) {
 		brra_c_die();
 	}
 	$date = brra_c_in( 'date' );
@@ -766,6 +808,9 @@ function brra_c_do_agenda() {
 	$m['date']  = preg_match( '/^\d{4}-\d{2}-\d{2}$/', brra_c_in( 'date' ) ) ? brra_c_in( 'date' ) : $m['date'];
 	$m['time']  = brra_c_in( 'time', $m['time'] );
 	$m['venue'] = brra_c_in( 'venue', $m['venue'] );
+	if ( isset( $_POST['season'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+		$m['season'] = absint( brra_c_in( 'season' ) );
+	}
 	foreach ( $m['items'] as $i => $it ) {
 		if ( isset( $items[ $it['key'] ] ) ) {
 			$row = $items[ $it['key'] ];
@@ -862,7 +907,7 @@ function brra_c_do_agenda() {
 			brra_c_back( 'agenda', array( 'id' => $m['id'] ), 'sent' );
 			break;
 		case 'delete':
-			if ( in_array( $m['status'], array( 'draft', 'sent' ), true ) ) {
+			if ( brra_can_add_meetings() && in_array( $m['status'], array( 'draft', 'sent' ), true ) ) {
 				wp_delete_post( $m['id'], true );
 				brra_c_back( 'meetings', array(), 'deleted' );
 			}
@@ -1317,6 +1362,7 @@ function brra_c_do_file_upload() {
 		'by'     => get_current_user_id(),
 		'at'     => current_time( 'mysql' ),
 		'size'   => (int) $file['size'],
+		'season' => brra_c_season_in(),
 	);
 	update_option( 'brra_committee_files', $files, false );
 	brra_c_back( 'files', array( 'folder' => $folder ), 'uploaded' );
@@ -1718,10 +1764,15 @@ function brra_stats_filters() {
 function brra_c_do_word() {
 	$m    = brra_c_meeting_from_request( false );
 	$what = 'agenda' === brra_c_in( 'what' ) ? 'agenda' : 'minutes';
-	$html = 'agenda' === $what ? brra_render_agenda_doc( $m ) : brra_render_minutes_doc( $m );
+	$html = 'agenda' === $what ? brra_render_agenda_doc( $m, 'word' ) : brra_render_minutes_doc( $m, 'word' );
 	nocache_headers();
 	header( 'Content-Type: application/msword; charset=utf-8' );
 	header( 'Content-Disposition: attachment; filename="BRRA Committee ' . ( 'agenda' === $what ? 'Agenda' : 'Minutes' ) . ' ' . $m['date'] . '.doc"' );
-	echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>' . brra_doc_css() . '</style></head><body>' . $html . '</body></html>'; // phpcs:ignore WordPress.Security.EscapeOutput
+	// Word page sections: the letterhead is the page header and the values line with the page number is the footer, so both repeat on every page.
+	$page  = "<!--[if supportFields]><span style='mso-element:field-begin'></span>PAGE<span style='mso-element:field-end'></span><![endif]-->";
+	$foot  = '<p class="MsoFooter" style="margin:0;border-top:.75pt solid #D4AF37;padding-top:3pt;font-family:Arial,sans-serif;font-size:8pt;color:#3E4C60;tab-stops:right 515pt">' . brra_doc_values() . '<span style="mso-tab-count:1"></span>Page ' . $page . '</p>';
+	$css   = '@page Section1{size:595.3pt 841.9pt;margin:118pt 40pt 60pt 40pt;mso-header-margin:24pt;mso-footer-margin:24pt;mso-header:h1;mso-footer:f1}div.Section1{page:Section1}p.MsoHeader,p.MsoFooter{margin:0}' . brra_doc_css();
+	echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]--><style>' . $css . '</style></head><body><div class="Section1">' . $html // phpcs:ignore WordPress.Security.EscapeOutput
+		. '<table style="margin-left:50in;border:0"><tr><td style="border:0"><div style="mso-element:header" id="h1">' . brra_doc_letterhead() . '</div><div style="mso-element:footer" id="f1">' . $foot . '</div></td></tr></table></div></body></html>'; // phpcs:ignore WordPress.Security.EscapeOutput
 	exit;
 }

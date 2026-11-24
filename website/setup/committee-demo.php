@@ -273,3 +273,114 @@ foreach ( brra_agenda_template() as $brra_t ) {
 $brra_dec['reports']['secretary'] = array( 'text' => "Example report.\n\nCorrespondence: a letter from the County FA about next season's ticket applications (deadline 31 December).\n\nWebsite: the new site is ready to move to our own hosting.", 'data' => array(), 'by' => $brra_admin->ID, 'at' => current_time( 'mysql' ), 'submitted' => 1 );
 $brra_dec['reports']['treasurer'] = array( 'text' => 'Example: nothing unusual this month. 100 Club 2nd and 3rd prizes still to pay.', 'data' => array(), 'by' => $brra_c( 'Norman Rowlands' ), 'at' => current_time( 'mysql' ), 'submitted' => 1 );
 brra_meeting_save( $brra_dec );
+
+// ---- Example files, so the file share shows its season groups.
+$brra_pdf = function ( $text ) {
+	$stream = 'BT /F1 16 Tf 60 760 Td (' . str_replace( array( '\\', '(', ')' ), array( '\\\\', '\\(', '\\)' ), $text ) . ') Tj 0 -26 Td /F1 11 Tf (Example file for the test site only.) Tj ET';
+	$objs   = array(
+		'<< /Type /Catalog /Pages 2 0 R >>',
+		'<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+		'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+		'<< /Length ' . strlen( $stream ) . " >>\nstream\n" . $stream . "\nendstream",
+		'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+	);
+	$pdf    = "%PDF-1.4\n";
+	$offs   = array();
+	foreach ( $objs as $i => $o ) {
+		$offs[] = strlen( $pdf );
+		$pdf   .= ( $i + 1 ) . " 0 obj\n" . $o . "\nendobj\n";
+	}
+	$xref = strlen( $pdf );
+	$pdf .= "xref\n0 " . ( count( $objs ) + 1 ) . "\n0000000000 65535 f \n";
+	foreach ( $offs as $o ) {
+		$pdf .= sprintf( "%010d 00000 n \n", $o );
+	}
+	return $pdf . "trailer\n<< /Size " . ( count( $objs ) + 1 ) . " /Root 1 0 R >>\nstartxref\n" . $xref . "\n%%EOF\n";
+};
+$brra_store = function ( $prefix, $text ) use ( $brra_pdf ) {
+	$name = $prefix . wp_generate_password( 16, false ) . '.pdf';
+	file_put_contents( brra_files_dir() . '/' . $name, $brra_pdf( $text ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+	return $name;
+};
+$brra_files = array();
+foreach (
+	array(
+		array( 'Agenda, 12 November 2026', 'meetings', $brra_season, $brra_season . '-11-05 19:00:00', 'Josh Brammer' ),
+		array( 'Minutes, 15 October 2026 (approved)', 'meetings', $brra_season, $brra_season . '-11-13 09:00:00', 'Josh Brammer' ),
+		array( 'AGM minutes, 28 May 2026', 'meetings', $brra_season - 1, $brra_season . '-05-30 10:00:00', 'Josh Brammer' ),
+		array( 'Committee minutes, April 2026', 'meetings', $brra_season - 1, $brra_season . '-04-20 10:00:00', 'Josh Brammer' ),
+		array( 'Rules 2026', 'rules', $brra_season, $brra_season . '-06-02 10:00:00', 'Josh Brammer' ),
+		array( 'Bank statement, October', 'finance', $brra_season, $brra_season . '-11-03 10:00:00', 'Norman Rowlands' ),
+	) as $brra_k => $brra_f
+) {
+	$brra_files[ 'demo' . $brra_k ] = array(
+		'name'   => $brra_f[0],
+		'file'   => $brra_store( 'f-', $brra_f[0] ),
+		'orig'   => sanitize_file_name( $brra_f[0] ) . '.pdf',
+		'folder' => $brra_f[1],
+		'by'     => $brra_c( $brra_f[4] ),
+		'at'     => $brra_f[3],
+		'size'   => 1200,
+		'season' => $brra_f[2],
+	);
+}
+update_option( 'brra_committee_files', $brra_files, false );
+
+// ---- Business cards, expenses and the season budget (example figures).
+update_option(
+	'brra_expense_cards',
+	array(
+		$brra_admin->ID                 => '3141',
+		$brra_c( 'Norman Rowlands' )    => '5048',
+		$brra_c( 'Aron Connolly' )      => '2212',
+	),
+	false
+);
+$brra_exp = array();
+foreach (
+	array(
+		array( 'card', 'Norman Rowlands', '09-03', 60.00, 'Room hire, season', 'room', true, 'checked' ),
+		array( 'card', 'Josh Brammer', '07-15', 28.00, 'Domain renewal', 'web', true, 'checked' ),
+		array( 'claim', 'Kaan Hayes', '09-10', 14.00, 'Stamps for County FA letters', 'admin', true, 'paid' ),
+		array( 'card', 'Norman Rowlands', '10-01', 42.00, 'Chip butties, October MDS', 'refreshments', true, 'checked' ),
+		array( 'card', 'Norman Rowlands', '10-14', 42.00, 'Replacement projector cable and adapter', 'contingency', true, 'checked' ),
+		array( 'card', 'Aron Connolly', '10-16', 88.56, 'Lanyards and badge holders', 'kit', true, 'checked' ),
+		array( 'card', 'Josh Brammer', '11-02', 63.15, 'Email hosting, renewal', 'web', true, 'checked' ),
+		array( 'card', 'Norman Rowlands', '11-05', 42.00, 'Chip butties, November MDS', 'refreshments', true, 'unchecked' ),
+		array( 'card', 'Aron Connolly', '11-07', 24.99, 'Printing, check-in QR signs', 'kit', false, 'unchecked' ),
+		array( 'claim', 'Martin Flynn', '10-08', 76.50, 'Speaker petrol and gift, James Mainwaring', 'speakers', true, 'paid' ),
+		array( 'claim', 'Martin Flynn', '11-12', 18.50, 'Thank-you gift, Peter Wright', 'speakers', true, 'approved' ),
+		array( 'claim', 'Martin Flynn', '11-18', 18.50, 'Speaker petrol, Peter Wright', 'speakers', true, 'pending' ),
+		array( 'claim', 'Josh Brammer', '11-20', 28.30, 'Raffle prizes', 'christmas', true, 'pending' ),
+		array( 'card', 'Norman Rowlands', '09-04', 84.40, 'Chip butties, September MDS and AGM leftovers', 'refreshments', true, 'checked' ),
+	) as $brra_k => $brra_e
+) {
+	$brra_who = $brra_c( $brra_e[1] );
+	$brra_exp[ 'demo' . $brra_k ] = array(
+		'id'         => 'demo' . $brra_k,
+		'type'       => $brra_e[0],
+		'card'       => 'card' === $brra_e[0] ? $brra_who : 0,
+		'date'       => $brra_season . '-' . $brra_e[2],
+		'amount'     => $brra_e[3],
+		'what'       => $brra_e[4],
+		'area'       => $brra_e[5],
+		'receipt'    => $brra_e[6] ? $brra_store( 'r-', 'Receipt: ' . $brra_e[4] . ', ' . brra_money( $brra_e[3] ) ) : '',
+		'orig'       => $brra_e[6] ? sanitize_file_name( $brra_e[4] ) . '.pdf' : '',
+		'by'         => $brra_who,
+		'at'         => $brra_season . '-' . $brra_e[2] . ' 21:00:00',
+		'status'     => $brra_e[7],
+		'note'       => '',
+		'paid_at'    => 'paid' === $brra_e[7] ? gmdate( 'Y-m-d H:i:s', strtotime( $brra_season . '-' . $brra_e[2] . ' +3 days' ) ) : '',
+		'checked_at' => 'checked' === $brra_e[7] ? gmdate( 'Y-m-d H:i:s', strtotime( $brra_season . '-' . $brra_e[2] . ' +20 days' ) ) : '',
+	);
+}
+update_option( 'brra_expenses', $brra_exp, false );
+$brra_areas = brra_budget_default_areas();
+foreach ( array( 'room' => 60, 'refreshments' => 300, 'speakers' => 250, 'christmas' => 200, 'newrefs' => 250, 'web' => 120, 'kit' => 100, 'admin' => 70, 'contingency' => 100 ) as $brra_k => $brra_v ) {
+	foreach ( $brra_areas as $brra_i => $brra_a ) {
+		if ( $brra_a['key'] === $brra_k ) {
+			$brra_areas[ $brra_i ]['amount'] = $brra_v;
+		}
+	}
+}
+update_option( 'brra_budget', array( $brra_season => array( 'areas' => $brra_areas, 'by' => $brra_c( 'Norman Rowlands' ), 'at' => $brra_season . '-10-15 21:30:00' ) ), false );

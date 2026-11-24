@@ -84,23 +84,143 @@ function brra_shortcode_committee_area() {
 		return '<div class="bc-gate"><h2>Committee area</h2><p>Sorry, this part of the site is only for committee members. If you\'ve just joined the committee, ask the Secretary to add you.</p></div>';
 	}
 	$view  = sanitize_key( brra_c_in( 'view', 'home' ) );
-	$views = array( 'home', 'meetings', 'agenda', 'live', 'view', 'minutes', 'report', 'actions', 'files', 'finance', 'calendar', 'speakers', 'stats', 'people' );
+	$views = array( 'home', 'meetings', 'agenda', 'live', 'view', 'minutes', 'report', 'reports', 'actions', 'files', 'finance', 'expenses', 'budget', 'prizes', 'calendar', 'speakers', 'stats', 'people', 'attendance' );
 	$view  = in_array( $view, $views, true ) ? $view : 'home';
-	if ( 'minutes' === $view && brra_c_in( 'print' ) ) {
+	if ( in_array( $view, array( 'minutes', 'view' ), true ) && brra_c_in( 'print' ) ) {
 		$m = brra_meeting( absint( brra_c_in( 'id' ) ) );
-		return '<div class="bc-print"><p class="bc-noprint"><button type="button" class="bc-btn" onclick="window.print()">Print or save as PDF</button> <a href="' . esc_url( brra_c_url( 'minutes', array( 'id' => $m['id'] ) ) ) . '">Back</a></p>' . brra_render_minutes_doc( $m ) . '</div>';
+		if ( ! $m['date'] ) {
+			return '<p>Meeting not found.</p>';
+		}
+		$doc = 'view' === $view ? brra_render_agenda_doc( $m, 'print' ) : brra_render_minutes_doc( $m, 'print' );
+		return brra_doc_print_css() . '<div class="bc-print"><p class="bc-noprint"><button type="button" class="bc-btn" onclick="window.print()">Print or save as PDF</button> <a href="' . esc_url( brra_c_url( $view, array( 'id' => $m['id'] ) ) ) . '">Back</a></p>' . $doc . '</div>';
 	}
 	ob_start();
-	echo '<div class="bc">';
+	echo '<div class="bc" data-base="' . esc_attr( wp_parse_url( brra_c_url(), PHP_URL_PATH ) ) . '">';
 	brra_c_sidebar( $view );
-	echo '<div class="bc-main">';
+	echo '<div class="bc-main" id="bc-main" data-view="' . esc_attr( $view ) . '">';
 	if ( defined( 'BRRA_DEMO' ) && BRRA_DEMO || get_option( 'brra_demo_committee' ) ) {
 		echo '<p class="bc-demo">Test site: the meetings, figures and names here are made-up examples so you can try things out.</p>';
 	}
+	brra_c_crumbs( $view );
 	brra_c_notice();
 	call_user_func( 'brra_c_view_' . $view );
 	echo '</div></div>';
 	return preg_replace( '/>\s+</', '><', ob_get_clean() );
+}
+
+/**
+ * The menu: single links and groups that fold open.
+ * Each entry: array( key, label, items ) where items is empty for a single link.
+ */
+function brra_c_nav() {
+	$nav = array(
+		array( 'home', 'Committee home', array() ),
+		array(
+			'g-meetings',
+			'Meetings',
+			array(
+				array( 'meetings', 'Meetings' ),
+				array( 'actions', 'Actions' ),
+				array( 'reports', 'Reports' ),
+			),
+		),
+		array(
+			'g-finance',
+			'Finance',
+			array(
+				array( 'finance', 'Bank balance' ),
+				array( 'expenses', 'Expenses' ),
+				array( 'budget', 'Budget' ),
+				array( 'prizes', '100 Club prizes' ),
+			),
+		),
+		array(
+			'g-events',
+			'Events',
+			array(
+				array( 'calendar', 'Calendar' ),
+				array( 'speakers', 'Guest speakers' ),
+				array( 'event-night', 'Event night' ),
+			),
+		),
+		array( 'stats', 'Membership stats', array() ),
+		array( 'files', 'Files', array() ),
+	);
+	if ( brra_can_manage_committee() ) {
+		$nav[] = array(
+			'g-admin',
+			'Admin',
+			array(
+				array( 'people', 'Committee and delegates' ),
+				array( 'attendance', 'Committee attendance' ),
+			),
+		);
+	}
+	return $nav;
+}
+
+/**
+ * Which menu item a screen belongs to.
+ *
+ * @param string $view Screen.
+ */
+function brra_c_nav_key( $view ) {
+	$map = array(
+		'agenda'  => 'meetings',
+		'live'    => 'meetings',
+		'view'    => 'meetings',
+		'minutes' => 'meetings',
+		'report'  => 'reports',
+	);
+	return isset( $map[ $view ] ) ? $map[ $view ] : $view;
+}
+
+/**
+ * Little number badges on the menu: things waiting on you.
+ */
+function brra_c_nav_badges() {
+	$uid = get_current_user_id();
+	$b   = array();
+	$b['actions'] = count(
+		array_filter(
+			brra_all_actions( true ),
+			function ( $a ) use ( $uid ) {
+				return (int) $a['owner'] === $uid;
+			}
+		)
+	);
+	$next = brra_next_meeting();
+	if ( $next ) {
+		$n = 0;
+		foreach ( $next['items'] as $it ) {
+			if ( 'report' === $it['kind'] && (int) $it['lead'] === $uid && empty( $next['reports'][ $it['report'] ]['submitted'] ) ) {
+				++$n;
+			}
+		}
+		$b['reports'] = $n;
+	}
+	if ( function_exists( 'brra_expenses_in' ) ) {
+		$n = 0;
+		foreach ( brra_expenses_in( brra_current_season()[0] ) as $e ) {
+			$person = brra_expense_person( $e );
+			if ( brra_can_approve_expenses() && $person !== $uid ) {
+				$n += ( 'claim' === $e['type'] && 'pending' === $e['status'] ) || ( 'card' === $e['type'] && empty( $e['receipt'] ) ) ? 1 : 0;
+			} elseif ( $person === $uid ) {
+				$n += ( 'card' === $e['type'] && empty( $e['receipt'] ) ) || 'queried' === $e['status'] ? 1 : 0;
+			}
+		}
+		$b['expenses'] = $n;
+	}
+	return array_filter( $b );
+}
+
+/**
+ * Link for a menu item.
+ *
+ * @param string $key Item.
+ */
+function brra_c_nav_url( $key ) {
+	return 'event-night' === $key ? brra_attendance_admin_url() : brra_c_url( 'home' === $key ? '' : $key );
 }
 
 /**
@@ -109,35 +229,129 @@ function brra_shortcode_committee_area() {
  * @param string $view Current screen.
  */
 function brra_c_sidebar( $view ) {
-	$uid   = get_current_user_id();
-	$items = array(
-		array( 'home', 'Committee home' ),
-		array( 'meetings', 'Meetings' ),
-		array( 'actions', 'Actions' ),
-		array( 'files', 'Files' ),
-		array( '-', 'Season' ),
-		array( 'calendar', 'Season calendar' ),
-		array( 'speakers', 'Guest speakers' ),
-		array( 'stats', 'Membership stats' ),
-		array( 'finance', 'Finance' ),
-		array( 'event-night', 'Event night (check-in, 100 Club)' ),
-	);
-	if ( brra_can_manage_committee() ) {
-		$items[] = array( '-', 'Admin' );
-		$items[] = array( 'people', 'Committee and delegates' );
-	}
-	$map = array( 'agenda' => 'meetings', 'live' => 'meetings', 'view' => 'meetings', 'minutes' => 'meetings', 'report' => 'meetings' );
-	$cur = isset( $map[ $view ] ) ? $map[ $view ] : $view;
-	echo '<nav class="bc-side" aria-label="Committee area"><div class="bc-who">' . brra_e( brra_c_name( $uid ) ) . '</div><div class="bc-role">' . brra_e( brra_committee_title( $uid ) ) . '</div>';
-	foreach ( $items as $it ) {
-		if ( '-' === $it[0] ) {
-			echo '<div class="bc-grp">' . brra_e( $it[1] ) . '</div>';
+	$uid    = get_current_user_id();
+	$cur    = brra_c_nav_key( $view );
+	$badges = brra_c_nav_badges();
+	$label  = 'Committee home';
+	$html   = '';
+	$badge  = function ( $n, $tone = '' ) {
+		return $n ? '<span class="bc-badge' . ( $tone ? ' is-' . $tone : '' ) . '">' . (int) $n . '</span>' : '';
+	};
+	foreach ( brra_c_nav() as $g ) {
+		list( $key, $name, $items ) = $g;
+		if ( ! $items ) {
+			$on    = $cur === $key;
+			$label = $on ? $name : $label;
+			$html .= '<a class="bc-nav-top' . ( $on ? ' is-on' : '' ) . '" href="' . esc_url( brra_c_nav_url( $key ) ) . '"' . ( $on ? ' aria-current="page"' : '' ) . '>' . brra_e( $name ) . $badge( isset( $badges[ $key ] ) ? $badges[ $key ] : 0 ) . '</a>';
 			continue;
 		}
-		$url = 'event-night' === $it[0] ? brra_attendance_admin_url() : brra_c_url( 'home' === $it[0] ? '' : $it[0] );
-		echo '<a href="' . esc_url( $url ) . '"' . ( $cur === $it[0] ? ' class="is-on" aria-current="page"' : '' ) . '>' . brra_e( $it[1] ) . '</a>';
+		$open  = false;
+		$links = '';
+		$sum   = 0;
+		foreach ( $items as $it ) {
+			$on     = $cur === $it[0];
+			$open   = $open || $on;
+			$label  = $on ? $it[1] : $label;
+			$n      = isset( $badges[ $it[0] ] ) ? $badges[ $it[0] ] : 0;
+			$sum   += $n;
+			$ext    = 'event-night' === $it[0];
+			$links .= '<a href="' . esc_url( brra_c_nav_url( $it[0] ) ) . '"' . ( $on ? ' class="is-on" aria-current="page"' : '' ) . ( $ext ? ' data-ext="1" title="Opens the check-in and 100 Club screen in the dashboard"' : '' ) . '>' . brra_e( $it[1] ) . ( $ext ? ' <span aria-hidden="true">↗</span>' : '' ) . $badge( $n, 'expenses' === $it[0] ? 'r' : '' ) . '</a>';
+		}
+		$html .= '<details class="bc-nav-grp" data-g="' . esc_attr( $key ) . '"' . ( $open ? ' open data-cur="1"' : '' ) . '><summary>' . brra_e( $name ) . '<span class="bc-grp-badge">' . $badge( $sum ) . '</span></summary><div class="bc-nav-items">' . $links . '</div></details>';
 	}
-	echo '</nav>';
+	echo '<nav class="bc-side" id="bc-side" aria-label="Committee area"><div class="bc-who">' . brra_e( brra_c_name( $uid ) ) . '</div><div class="bc-role">' . brra_e( brra_committee_title( $uid ) ) . '</div>';
+	echo '<button type="button" class="bc-menu-btn" aria-expanded="false" aria-controls="bc-nav"><span class="bc-burger" aria-hidden="true"></span>Menu<span class="bc-menu-cur">' . brra_e( $label ) . '</span></button>';
+	echo '<div class="bc-nav" id="bc-nav">' . $html . '</div></nav>'; // phpcs:ignore WordPress.Security.EscapeOutput
+}
+
+/**
+ * Breadcrumb trail at the top of a screen.
+ *
+ * @param string $view Screen.
+ */
+function brra_c_crumbs( $view ) {
+	if ( 'home' === $view ) {
+		return;
+	}
+	$trail = array( array( 'Committee', brra_c_url() ) );
+	$key   = brra_c_nav_key( $view );
+	foreach ( brra_c_nav() as $g ) {
+		if ( ! $g[2] ) {
+			if ( $g[0] === $key ) {
+				$trail[] = array( $g[1], brra_c_url( $key ) );
+			}
+			continue;
+		}
+		foreach ( $g[2] as $it ) {
+			if ( $it[0] === $key ) {
+				if ( $g[1] !== $it[1] ) {
+					$trail[] = array( $g[1], '' );
+				}
+				$trail[] = array( $it[1], brra_c_url( $key ) );
+			}
+		}
+	}
+	$id = absint( brra_c_in( 'id' ) );
+	if ( $id && in_array( $view, array( 'agenda', 'live', 'view', 'minutes', 'report', 'reports' ), true ) ) {
+		$m = brra_meeting( $id );
+		if ( $m['date'] ) {
+			$s       = brra_meeting_season( $m );
+			$trail   = array( array( 'Committee', brra_c_url() ), array( 'Meetings', brra_c_url( 'meetings' ) ), array( brra_season_label( $s ), brra_c_url( 'meetings', array( 'season' => $s ) ) ), array( brra_c_date( $m['date'], 'l j F' ), brra_c_url( 'view', array( 'id' => $id ) ) ) );
+			$kinds   = brra_report_kinds();
+			$rk      = sanitize_key( brra_c_in( 'report' ) );
+			$labels  = array(
+				'agenda'  => 'Edit agenda',
+				'live'    => 'Take minutes',
+				'minutes' => 'Minutes',
+				'reports' => 'Reports',
+				'report'  => isset( $kinds[ $rk ] ) ? $kinds[ $rk ][0] : 'Report',
+			);
+			if ( 'report' === $view ) {
+				$trail[] = array( 'Reports', brra_c_url( 'reports', array( 'id' => $id ) ) );
+			}
+			if ( isset( $labels[ $view ] ) ) {
+				$trail[] = array( $labels[ $view ], '' );
+			}
+		}
+	}
+	$out  = '<nav class="bc-crumbs" aria-label="Breadcrumb">';
+	$last = count( $trail ) - 1;
+	foreach ( $trail as $i => $t ) {
+		if ( $i > 0 ) {
+			$out .= '<span aria-hidden="true">›</span>';
+		}
+		$out .= $i < $last && $t[1] ? '<a href="' . esc_url( $t[1] ) . '">' . ( 0 === $i ? '<span aria-hidden="true">← </span>' : '' ) . brra_e( $t[0] ) . '</a>' : '<span' . ( $i === $last ? ' aria-current="page"' : '' ) . '>' . brra_e( $t[0] ) . '</span>';
+	}
+	echo $out . '</nav>'; // phpcs:ignore WordPress.Security.EscapeOutput
+}
+
+/**
+ * Tabs inside a meeting: agenda, reports, take minutes, minutes, edit agenda.
+ *
+ * @param array  $m   Meeting.
+ * @param string $cur Current tab.
+ */
+function brra_c_meeting_tabs( $m, $cur ) {
+	$tabs = array( 'view' => 'Agenda' );
+	$rep  = brra_c_report_rows( $m );
+	if ( $rep[2] ) {
+		$tabs['reports'] = 'Reports <span class="bc-tab-n">' . (int) $rep[1] . '/' . (int) $rep[2] . '</span>';
+	}
+	if ( 'open' === $m['status'] && brra_can_manage_minutes( $m['id'] ) ) {
+		$tabs['live'] = '<span class="bc-dot"></span>Take minutes';
+	}
+	if ( in_array( $m['status'], array( 'closed', 'approved' ), true ) ) {
+		$tabs['minutes'] = 'Minutes';
+	}
+	if ( brra_can_manage_minutes( $m['id'] ) && in_array( $m['status'], array( 'draft', 'sent' ), true ) ) {
+		$tabs['agenda'] = 'Edit agenda';
+	}
+	$cur = 'report' === $cur ? 'reports' : $cur;
+	$out = '<div class="bc-tabs" role="navigation" aria-label="This meeting">';
+	foreach ( $tabs as $k => $l ) {
+		$out .= '<a href="' . esc_url( brra_c_url( $k, array( 'id' => $m['id'] ) ) ) . '"' . ( $k === $cur ? ' class="is-on" aria-current="page"' : '' ) . '>' . $l . '</a>';
+	}
+	echo $out . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput
 }
 
 /**
@@ -157,9 +371,13 @@ function brra_c_notice() {
 		'badfile'   => 'That file couldn\'t be added. Use PDF, Word, Excel, PowerPoint, CSV, text or an image.',
 		'nofile'    => 'Choose a file and a folder first.',
 		'baddate'   => 'Please pick a date.',
+		'expense'   => 'Payment saved.',
+		'reminded'  => 'Reminder sent.',
+		'badexpense' => 'Please fill in the date, the amount and what it was for.',
+		'badreceipt' => 'That receipt couldn\'t be added. Use a photo (JPG, PNG, HEIC) or a PDF.',
 	);
 	if ( isset( $msgs[ $done ] ) ) {
-		$bad = in_array( $done, array( 'badfile', 'nofile', 'baddate' ), true );
+		$bad = in_array( $done, array( 'badfile', 'nofile', 'baddate', 'badexpense', 'badreceipt' ), true );
 		echo '<p class="bc-notice' . ( $bad ? ' is-bad' : '' ) . '" role="status">' . brra_e( $msgs[ $done ] ) . '</p>';
 	}
 }
@@ -205,7 +423,7 @@ function brra_c_view_home() {
 		echo '<a class="bc-btn is-line" href="' . esc_url( brra_c_url( 'view', array( 'id' => $next['id'] ) ) ) . '">View agenda</a></div>';
 	} else {
 		echo '<h2>None planned yet</h2>';
-		if ( brra_can_manage_minutes() ) {
+		if ( brra_can_add_meetings() ) {
 			echo '<a class="bc-btn is-gold" href="' . esc_url( brra_c_url( 'meetings' ) ) . '">Add a meeting</a>';
 		}
 	}
@@ -238,28 +456,7 @@ function brra_c_view_home() {
 	echo '</div>';
 	echo '<div class="bc-card">';
 	if ( $next ) {
-		$kinds = brra_report_kinds();
-		$in    = 0;
-		$rows  = '';
-		foreach ( $next['items'] as $it ) {
-			if ( 'report' !== $it['kind'] || ! isset( $kinds[ $it['report'] ] ) ) {
-				continue;
-			}
-			$r     = isset( $next['reports'][ $it['report'] ] ) ? $next['reports'][ $it['report'] ] : null;
-			$done  = $r && ! empty( $r['submitted'] );
-			$in   += $done ? 1 : 0;
-			$can   = brra_can_write_report( $it['report'], $next['id'] );
-			$rows .= '<tr><td>' . brra_e( $kinds[ $it['report'] ][0] ) . '</td><td>' . brra_e( $it['lead'] ? strtok( brra_c_name( $it['lead'] ), ' ' ) : 'Anyone' ) . '</td><td>';
-			if ( $done ) {
-				$rows .= '<a href="' . esc_url( brra_c_url( $can ? 'report' : 'view', array( 'id' => $next['id'], 'report' => $it['report'] ) ) ) . '">' . brra_pill( 'Submitted', 'g' ) . '</a>';
-			} elseif ( $can ) {
-				$rows .= '<a class="bc-btn is-sm" href="' . esc_url( brra_c_url( 'report', array( 'id' => $next['id'], 'report' => $it['report'] ) ) ) . '">' . ( $r ? 'Carry on' : 'Write it' ) . '</a>';
-			} else {
-				$rows .= brra_pill( 'Not yet' );
-			}
-			$rows .= '</td></tr>';
-		}
-		$total = substr_count( $rows, '<tr>' );
+		list( $rows, $in, $total ) = brra_c_report_rows( $next );
 		echo '<div class="bc-row bc-sp"><h3>Reports for ' . brra_e( brra_c_date( $next['date'], 'j F' ) ) . '</h3><span class="bc-muted">' . (int) $in . ' of ' . (int) $total . ' in</span></div><table class="bc-table">' . $rows . '</table><p class="bc-note">Submitted reports show inside the agenda, so everyone can read them on their phone during the meeting.</p>'; // phpcs:ignore WordPress.Security.EscapeOutput
 	} else {
 		echo '<h3>Reports</h3><p class="bc-muted">Reports open once the next meeting is added.</p>';
@@ -341,41 +538,162 @@ function brra_c_action_rows( $actions, $show_owner, $back ) {
 	return $out;
 }
 
+/**
+ * Report rows for a meeting: array( table rows, number in, number expected ).
+ *
+ * @param array $m Meeting.
+ */
+function brra_c_report_rows( $m ) {
+	$kinds = brra_report_kinds();
+	$in    = 0;
+	$total = 0;
+	$rows  = '';
+	$open  = in_array( $m['status'], array( 'draft', 'sent', 'open' ), true );
+	foreach ( $m['items'] as $it ) {
+		if ( 'report' !== $it['kind'] || ! isset( $kinds[ $it['report'] ] ) ) {
+			continue;
+		}
+		++$total;
+		$r     = isset( $m['reports'][ $it['report'] ] ) ? $m['reports'][ $it['report'] ] : null;
+		$done  = $r && ! empty( $r['submitted'] );
+		$in   += $done ? 1 : 0;
+		$can   = brra_can_write_report( $it['report'], $m['id'] ) && $open;
+		$rows .= '<tr><td><strong>' . brra_e( $kinds[ $it['report'] ][0] ) . '</strong></td><td>' . brra_e( $it['lead'] ? brra_c_name( $it['lead'] ) : 'Anyone' ) . '</td><td>';
+		if ( $done ) {
+			$rows .= '<a href="' . esc_url( brra_c_url( $can ? 'report' : 'view', array( 'id' => $m['id'], 'report' => $it['report'] ) ) ) . '">' . brra_pill( 'Submitted', 'g' ) . '</a>';
+		} elseif ( $can ) {
+			$rows .= '<a class="bc-btn is-sm" href="' . esc_url( brra_c_url( 'report', array( 'id' => $m['id'], 'report' => $it['report'] ) ) ) . '">' . ( $r ? 'Carry on' : 'Write it' ) . '</a>';
+		} else {
+			$rows .= brra_pill( $open ? 'Not in yet' : 'None given' );
+		}
+		$rows .= '</td></tr>';
+	}
+	return array( $rows, $in, $total );
+}
+
+/**
+ * Reports for a meeting (the next one unless another is chosen).
+ */
+function brra_c_view_reports() {
+	$id = absint( brra_c_in( 'id' ) );
+	$m  = $id ? brra_meeting( $id ) : brra_next_meeting();
+	if ( ! $m || ! $m['date'] ) {
+		brra_c_head( 'Meetings', 'Reports' );
+		echo '<div class="bc-card"><p class="bc-empty">Reports open once the next meeting is added. ' . ( brra_can_add_meetings() ? '<a href="' . esc_url( brra_c_url( 'meetings' ) ) . '">Add a meeting</a>' : 'The Secretary or Chairman adds meetings.' ) . '</p></div>';
+		return;
+	}
+	list( $rows, $in, $total ) = brra_c_report_rows( $m );
+	brra_c_head( 'Meetings · ' . brra_c_date( $m['date'], 'l j F' ), 'Reports', '', 'Each area owner writes their report here before the meeting. Submitted reports show inside the agenda, so everyone can read them on their phone during the meeting.' );
+	brra_c_meeting_tabs( $m, 'reports' );
+	echo '<div class="bc-card"><div class="bc-row bc-sp"><h3>Reports for ' . brra_e( brra_c_date( $m['date'], 'l j F' ) ) . '</h3><span class="bc-muted">' . (int) $in . ' of ' . (int) $total . ' in</span></div>';
+	echo $total ? '<table class="bc-table"><thead><tr><th>Report</th><th>From</th><th></th></tr></thead>' . $rows . '</table>' : '<p class="bc-empty">This agenda has no report items. Add them in Edit agenda.</p>'; // phpcs:ignore WordPress.Security.EscapeOutput
+	echo '</div>';
+}
+
+/**
+ * 100 Club prizes to pay.
+ */
+function brra_c_view_prizes() {
+	brra_c_head( 'Finance', '100 Club prizes', '', 'Drawn on MDS nights and entered on Event night. The Treasurer ticks each prize off once it\'s paid.' );
+	$draws = brra_100club_draws();
+	echo '<div class="bc-card">';
+	if ( ! $draws ) {
+		echo '<p class="bc-empty">No draws recorded yet. Norman enters them on Event night, under Events.</p></div>';
+		return;
+	}
+	echo '<table class="bc-table"><thead><tr><th>Draw</th><th>Place</th><th>Number</th><th>Holder</th><th>Prize</th><th></th></tr></thead><tbody>';
+	foreach ( $draws as $d ) {
+		foreach ( $d['places'] as $p => $row ) {
+			if ( ! $row['holder'] || ! $row['prize'] ) {
+				continue;
+			}
+			$paid = ! empty( $row['paid'] );
+			echo '<tr><td>' . brra_e( brra_c_date( $d['date'], 'j M Y' ) ) . '</td><td>' . brra_e( array( '1st', '2nd', '3rd', '4th' )[ $p ] ) . '</td><td>' . brra_e( $row['num'] ) . '</td><td>' . brra_e( $row['holder'] ) . '</td><td>£' . brra_e( $row['prize'] ) . '</td><td>';
+			echo brra_can_manage_finance() ? '<a class="bc-btn is-sm' . ( $paid ? ' is-ghost' : '' ) . '" href="' . esc_url( brra_c_action_url( 'prize_paid', array( 'event' => $d['event'], 'place' => $p, 'paid' => $paid ? 0 : 1 ) ) ) . '">' . ( $paid ? 'Paid ✓' : 'Mark paid' ) . '</a>' : ( $paid ? brra_pill( 'Paid', 'g' ) : brra_pill( 'To pay', 'a' ) ); // phpcs:ignore WordPress.Security.EscapeOutput
+			echo '</td></tr>';
+		}
+	}
+	echo '</tbody></table></div>';
+}
+
+/**
+ * Committee attendance by season (Secretary and Chairman only).
+ */
+function brra_c_view_attendance() {
+	if ( ! brra_can_manage_committee() ) {
+		echo '<p>Only the Secretary and Chairman can see committee attendance.</p>';
+		return;
+	}
+	$season  = brra_c_season_in();
+	$seasons = array_map( 'brra_meeting_season', brra_meetings() );
+	brra_c_head( 'Admin · Secretary and Chairman only', 'Committee attendance', brra_c_season_picker( 'attendance', $season, $seasons ), 'Present, apologies and absent for each person at the committee meetings held in the season. Nobody else on the committee can see this.' );
+	brra_committee_attendance_card( $season );
+}
+
 // ---------------------------------------------------------------- Meetings list.
 
 /**
  * Meetings: minutes and agendas, add a meeting, suggest AOB.
  */
 function brra_c_view_meetings() {
-	brra_c_head( 'Meetings', 'Minutes and agendas', '', 'Every committee meeting, newest first. Open one to read the agenda or the minutes.' );
-	echo '<div class="bc-grid bc-g2w"><div><div class="bc-card"><table class="bc-table"><thead><tr><th>Meeting</th><th>Status</th><th></th></tr></thead><tbody>';
-	$all = brra_meetings();
-	foreach ( $all as $m ) {
-		$st    = brra_meeting_status_label( $m['status'] );
-		$links = array( '<a href="' . esc_url( brra_c_url( 'view', array( 'id' => $m['id'] ) ) ) . '">Agenda</a>' );
-		if ( in_array( $m['status'], array( 'closed', 'approved' ), true ) ) {
-			$links[] = '<a href="' . esc_url( brra_c_url( 'minutes', array( 'id' => $m['id'] ) ) ) . '">Minutes</a>';
-		}
-		if ( brra_can_manage_minutes( $m['id'] ) ) {
-			if ( 'open' === $m['status'] ) {
-				$links[] = '<a href="' . esc_url( brra_c_url( 'live', array( 'id' => $m['id'] ) ) ) . '"><strong>Take minutes</strong></a>';
-			} elseif ( in_array( $m['status'], array( 'draft', 'sent' ), true ) ) {
-				$links[] = '<a href="' . esc_url( brra_c_url( 'agenda', array( 'id' => $m['id'] ) ) ) . '">Edit agenda</a>';
+	$all     = brra_meetings();
+	$season  = brra_c_season_in();
+	$seasons = array_map( 'brra_meeting_season', $all );
+	$list    = array_values(
+		array_filter(
+			$all,
+			function ( $m ) use ( $season ) {
+				return brra_meeting_season( $m ) === $season;
 			}
-		}
-		echo '<tr><td><strong>' . brra_e( brra_c_date( $m['date'] ) ) . '</strong><div class="bc-muted">' . brra_e( brra_c_time( $m['time'] ) . ', ' . strtok( $m['venue'], ',' ) ) . '</div></td><td>' . brra_pill( $st[0], $st[1] ) . '</td><td class="bc-links">' . implode( ' · ', $links ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput
+		)
+	);
+	brra_c_head( 'Meetings', 'Minutes and agendas', brra_c_season_picker( 'meetings', $season, $seasons ), 'Committee meetings for the season, June to May, newest first. Open one to read the agenda, the reports or the minutes.' );
+	$held  = count(
+		array_filter(
+			$list,
+			function ( $m ) {
+				return in_array( $m['status'], array( 'open', 'closed', 'approved' ), true );
+			}
+		)
+	);
+	$next  = brra_next_meeting();
+	$facts = array( $held . ' ' . ( 1 === $held ? 'meeting' : 'meetings' ) . ' held' );
+	if ( $next && brra_meeting_season( $next ) === $season ) {
+		$facts[] = 'next: <a href="' . esc_url( brra_c_url( 'view', array( 'id' => $next['id'] ) ) ) . '">' . brra_e( brra_c_date( $next['date'], 'l j F' ) ) . '</a>';
 	}
-	echo $all ? '' : '<tr><td colspan="3" class="bc-muted">No meetings yet.</td></tr>';
-	echo '</tbody></table></div>';
-	if ( brra_can_manage_committee() ) {
-		brra_committee_attendance_card( $all );
+	if ( (int) brra_current_season()[0] === $season ) {
+		$open    = count( brra_all_actions( true ) );
+		$facts[] = '<a href="' . esc_url( brra_c_url( 'actions' ) ) . '">' . $open . ' open ' . ( 1 === $open ? 'action' : 'actions' ) . '</a>';
+	}
+	echo '<p class="bc-facts">' . implode( ' · ', $facts ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput
+	echo '<div class="bc-grid bc-g2w"><div class="bc-card">';
+	if ( $list ) {
+		echo '<table class="bc-table"><thead><tr><th>Meeting</th><th>Status</th><th></th></tr></thead><tbody>';
+		foreach ( $list as $m ) {
+			$st    = brra_meeting_status_label( $m['status'] );
+			$links = array( '<a href="' . esc_url( brra_c_url( 'view', array( 'id' => $m['id'] ) ) ) . '">Agenda</a>' );
+			if ( in_array( $m['status'], array( 'closed', 'approved' ), true ) ) {
+				$links[] = '<a href="' . esc_url( brra_c_url( 'minutes', array( 'id' => $m['id'] ) ) ) . '">Minutes</a>';
+			}
+			if ( brra_can_manage_minutes( $m['id'] ) ) {
+				if ( 'open' === $m['status'] ) {
+					$links[] = '<a href="' . esc_url( brra_c_url( 'live', array( 'id' => $m['id'] ) ) ) . '"><strong>Take minutes</strong></a>';
+				} elseif ( in_array( $m['status'], array( 'draft', 'sent' ), true ) ) {
+					$links[] = '<a href="' . esc_url( brra_c_url( 'agenda', array( 'id' => $m['id'] ) ) ) . '">Edit agenda</a>';
+				}
+			}
+			echo '<tr><td><a class="bc-strong-link" href="' . esc_url( brra_c_url( 'view', array( 'id' => $m['id'] ) ) ) . '">' . brra_e( brra_c_date( $m['date'] ) ) . '</a><div class="bc-muted">' . brra_e( brra_c_time( $m['time'] ) . ', ' . strtok( $m['venue'], ',' ) ) . '</div></td><td>' . brra_pill( $st[0], $st[1] ) . '</td><td class="bc-links">' . implode( ' · ', $links ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput
+		}
+		echo '</tbody></table>';
+	} else {
+		echo '<p class="bc-empty">No meetings in ' . brra_e( brra_season_label( $season ) ) . '.' . ( brra_can_add_meetings() && $season >= (int) brra_current_season()[0] ? ' Add the first one on the right.' : '' ) . '</p>';
 	}
 	echo '</div><div>';
-	if ( brra_can_manage_minutes() ) {
+	if ( brra_can_add_meetings() ) {
 		$last = $all ? $all[0]['date'] : current_time( 'Y-m-d' );
 		$sugg = gmdate( 'Y-m-d', strtotime( $last . ' +4 weeks' ) );
-		echo '<div class="bc-card"><h3>Add a meeting</h3><p class="bc-muted">The agenda starts with the standing items, open actions carried forward and anything raised for AOB.</p>' . brra_c_form( 'meeting_new', array(), 'class="bc-form"' ); // phpcs:ignore WordPress.Security.EscapeOutput
-		echo '<label>Date<input type="date" name="date" value="' . esc_attr( $sugg ) . '" required></label><label>Time<input type="time" name="time" value="20:00"></label><label>Venue<input type="text" name="venue" value="' . esc_attr( "St Mary's Social Club, Pine Street, Radcliffe, M26 2WQ" ) . '"></label><button class="bc-btn">Add meeting</button></form></div>';
+		echo '<div class="bc-card"><h3>Add a meeting</h3><p class="bc-muted">The agenda starts with the standing items, open actions carried forward and anything raised for AOB. It goes into the season for its date.</p>' . brra_c_form( 'meeting_new', array(), 'class="bc-form"' ); // phpcs:ignore WordPress.Security.EscapeOutput
+		echo '<label class="bc-stack">Date<input type="date" name="date" value="' . esc_attr( $sugg ) . '" required></label><label class="bc-stack">Time<input type="time" name="time" value="20:00"></label><label class="bc-stack">Venue<input type="text" name="venue" value="' . esc_attr( "St Mary's Social Club, Pine Street, Radcliffe, M26 2WQ" ) . '"></label><button class="bc-btn">Add meeting</button></form></div>';
 	}
 	if ( brra_committee_can_edit() ) {
 		echo '<div class="bc-card"><h3>Raise something for AOB</h3><p class="bc-muted">It goes on the list for any other business at the next meeting.</p>' . brra_c_form( 'aob', array(), 'class="bc-form"' ) . '<input type="text" name="title" placeholder="What would you like to raise?" required><button class="bc-btn is-ghost">Send to the Secretary</button></form></div>'; // phpcs:ignore WordPress.Security.EscapeOutput
@@ -388,22 +706,19 @@ function brra_c_view_meetings() {
  *
  * @param array $all All meetings, newest first.
  */
-function brra_committee_attendance_card( $all ) {
-	$season = brra_current_season();
-	$from   = $season[0] . '-06-01';
-	$to     = $season[1] . '-05-31';
-	$held   = array_filter(
-		$all,
-		function ( $m ) use ( $from, $to ) {
-			return in_array( $m['status'], array( 'open', 'closed', 'approved' ), true ) && $m['date'] >= $from && $m['date'] <= $to;
+function brra_committee_attendance_card( $season ) {
+	$held = array_filter(
+		brra_meetings(),
+		function ( $m ) use ( $season ) {
+			return in_array( $m['status'], array( 'open', 'closed', 'approved' ), true ) && brra_meeting_season( $m ) === (int) $season;
 		}
 	);
-	echo '<div class="bc-card"><h3>Committee attendance, ' . (int) $season[0] . '/' . brra_e( substr( (string) $season[1], 2 ) ) . '</h3><p class="bc-muted">Only the Secretary and Chairman can see this.</p>';
+	echo '<div class="bc-card"><h3>Season ' . brra_e( brra_season_label( $season ) ) . '</h3>';
 	if ( ! $held ) {
-		echo '<p class="bc-muted">No meetings held yet this season.</p></div>';
+		echo '<p class="bc-empty">No meetings held in ' . brra_e( brra_season_label( $season ) ) . ' yet.</p></div>';
 		return;
 	}
-	echo '<p class="bc-muted">' . count( $held ) . ' ' . ( 1 === count( $held ) ? 'meeting' : 'meetings' ) . ' held this season.</p><table class="bc-table"><thead><tr><th>Name</th><th>Present</th><th>Apologies</th><th>Absent</th><th>Attendance</th></tr></thead><tbody>';
+	echo '<p class="bc-muted">' . count( $held ) . ' ' . ( 1 === count( $held ) ? 'meeting' : 'meetings' ) . ' held.</p><table class="bc-table"><thead><tr><th>Name</th><th>Present</th><th>Apologies</th><th>Absent</th><th>Attendance</th></tr></thead><tbody>';
 	foreach ( brra_committee_people() as $u ) {
 		$c = array(
 			'present'   => 0,
@@ -440,7 +755,8 @@ function brra_c_view_agenda() {
 	}
 	$right  = '<a class="bc-btn is-ghost" href="' . esc_url( brra_c_url( 'view', array( 'id' => $m['id'] ) ) ) . '">Preview agenda</a>';
 	$right .= in_array( $m['status'], array( 'draft', 'sent' ), true ) ? brra_c_form( 'meeting_open', array( 'id' => $m['id'] ) ) . '<button class="bc-btn is-gold">Open meeting</button></form>' : '<a class="bc-btn is-gold" href="' . esc_url( brra_c_url( 'live', array( 'id' => $m['id'] ) ) ) . '">Go to the meeting</a>';
-	brra_c_head( 'Meetings · Agenda' . ( $m['sent'] ? ' · sent ' . mysql2date( 'j M', $m['sent'] ) : '' ), brra_c_date( $m['date'] ), $right, 'Standing items are added for you, with open actions carried forward under Matters arising. Untick anything you don\'t need, move items or add new ones. Press Open meeting when the Chairman opens it.' );
+	brra_c_head( 'Edit agenda' . ( $m['sent'] ? ' · sent ' . mysql2date( 'j M', $m['sent'] ) : '' ), brra_c_date( $m['date'] ), $right, 'Standing items are added for you, with open actions carried forward under Matters arising. Untick anything you don\'t need, move items or add new ones. Press Open meeting when the Chairman opens it.' );
+	brra_c_meeting_tabs( $m, 'agenda' );
 	$aob = array_filter(
 		get_option( 'brra_aob', array() ),
 		function ( $s ) {
@@ -449,7 +765,7 @@ function brra_c_view_agenda() {
 	);
 	echo brra_c_form( 'agenda', array( 'id' => $m['id'] ), 'id="bc-agenda"' ); // phpcs:ignore WordPress.Security.EscapeOutput
 	echo '<div class="bc-grid bc-g2w"><div>';
-	echo '<div class="bc-card bc-meta"><label>Date<input type="date" name="date" value="' . esc_attr( $m['date'] ) . '"></label><label>Time<input type="time" name="time" value="' . esc_attr( $m['time'] ) . '"></label><label class="bc-wide">Venue<input type="text" name="venue" value="' . esc_attr( $m['venue'] ) . '"></label></div>';
+	echo '<div class="bc-card bc-meta"><label>Date<input type="date" name="date" value="' . esc_attr( $m['date'] ) . '"></label><label>Time<input type="time" name="time" value="' . esc_attr( $m['time'] ) . '"></label><label class="bc-wide">Venue<input type="text" name="venue" value="' . esc_attr( $m['venue'] ) . '"></label>' . brra_c_meeting_season_select( $m ) . '</div>';
 	$n     = 0;
 	$kinds = brra_report_kinds();
 	$total = count( $m['items'] );
@@ -490,10 +806,27 @@ function brra_c_view_agenda() {
 		echo '<p class="bc-muted">Nothing new. Committee members can raise items from the Meetings screen.</p>';
 	}
 	echo '</div>';
-	if ( in_array( $m['status'], array( 'draft', 'sent' ), true ) ) {
+	if ( brra_can_add_meetings() && in_array( $m['status'], array( 'draft', 'sent' ), true ) ) {
 		echo '<p><button class="bc-link-danger" name="op" value="delete" onclick="return confirm(\'Delete this meeting and its agenda?\')">Delete this meeting</button></p>';
 	}
 	echo '</div></div></form>';
+}
+
+/**
+ * Season picker for a meeting: worked out from the date unless changed.
+ *
+ * @param array $m Meeting.
+ */
+function brra_c_meeting_season_select( $m ) {
+	$auto = (int) brra_current_season( strtotime( $m['date'] . ' 12:00' ) )[0];
+	$set  = ! empty( $m['season'] ) ? (int) $m['season'] : 0;
+	$out  = '<label>Season<select name="season"><option value="0">' . brra_e( brra_season_label( $auto ) ) . ' (from the date)</option>';
+	foreach ( range( $auto - 2, $auto + 1 ) as $s ) {
+		if ( $s !== $auto ) {
+			$out .= '<option value="' . (int) $s . '"' . selected( $set, $s, false ) . '>' . brra_e( brra_season_label( $s ) ) . '</option>';
+		}
+	}
+	return $out . '</select></label>';
 }
 
 // ---------------------------------------------------------------- Agenda (read) and reports inline.
@@ -507,14 +840,9 @@ function brra_c_view_view() {
 		echo '<p>Meeting not found.</p>';
 		return;
 	}
-	$right = '<a class="bc-btn is-ghost" href="' . esc_url( brra_c_action_url( 'word', array( 'id' => $m['id'], 'what' => 'agenda' ) ) ) . '">Download for Word</a>';
-	if ( brra_can_manage_minutes( $m['id'] ) && in_array( $m['status'], array( 'draft', 'sent' ), true ) ) {
-		$right .= '<a class="bc-btn" href="' . esc_url( brra_c_url( 'agenda', array( 'id' => $m['id'] ) ) ) . '">Edit agenda</a>';
-	}
-	if ( in_array( $m['status'], array( 'closed', 'approved' ), true ) ) {
-		$right .= '<a class="bc-btn" href="' . esc_url( brra_c_url( 'minutes', array( 'id' => $m['id'] ) ) ) . '">Read the minutes</a>';
-	}
+	$right = '<a class="bc-btn is-ghost bc-dl" href="' . esc_url( brra_c_action_url( 'word', array( 'id' => $m['id'], 'what' => 'agenda' ) ) ) . '">Download for Word</a><a class="bc-btn is-ghost bc-dl" target="_blank" href="' . esc_url( brra_c_url( 'view', array( 'id' => $m['id'], 'print' => 1 ) ) ) . '">Print or save as PDF</a>';
 	brra_c_head( 'Agenda · ' . brra_c_time( $m['time'] ) . ', ' . strtok( $m['venue'], ',' ), brra_c_date( $m['date'] ), $right );
+	brra_c_meeting_tabs( $m, 'view' );
 	if ( 'open' === $m['status'] ) {
 		echo '<div class="bc-live"><span class="bc-dot"></span><strong>Meeting open</strong><span class="bc-muted">Opened at ' . brra_e( brra_c_time( $m['opened'] ) ) . '. Reports are below each item.</span>' . ( brra_can_manage_minutes( $m['id'] ) ? '<a class="bc-btn is-sm" href="' . esc_url( brra_c_url( 'live', array( 'id' => $m['id'] ) ) ) . '">Take minutes</a>' : '' ) . '</div>';
 	}
@@ -719,7 +1047,8 @@ function brra_c_view_report() {
 		'media'      => 'Type in this month\'s figures. Last month\'s are shown in grey, the changes are worked out, and a summary can be drafted for you to edit.',
 		'mds'        => 'Speakers booked, topics and anything else about the development sessions.',
 	);
-	brra_c_head( 'Reports · meeting on ' . brra_c_date( $m['date'], 'j F' ), $kinds[ $key ][0], ! empty( $r['submitted'] ) ? brra_pill( 'Submitted', 'g' ) : '', $subs[ $key ] );
+	brra_c_head( 'Report for ' . brra_c_date( $m['date'], 'l j F' ), $kinds[ $key ][0], ! empty( $r['submitted'] ) ? brra_pill( 'Submitted', 'g' ) : '', $subs[ $key ] );
+	brra_c_meeting_tabs( $m, 'report' );
 	echo brra_c_form( 'report', array( 'id' => $m['id'], 'report' => $key ), 'class="bc-report-form"' ); // phpcs:ignore WordPress.Security.EscapeOutput
 	if ( 'treasurer' === $key ) {
 		echo '<div class="bc-card">' . brra_treasurer_figures( $m ) . '<p><a href="' . esc_url( brra_c_url( 'finance' ) ) . '">Enter a new balance in Finance</a></p></div>'; // phpcs:ignore WordPress.Security.EscapeOutput
@@ -747,7 +1076,7 @@ function brra_c_view_report() {
 	} else {
 		echo '<div class="bc-card"><label class="bc-stack">' . ( 'secretary' === $key ? 'Your report' : 'Notes' ) . '<textarea name="text" rows="' . ( 'secretary' === $key ? 14 : 8 ) . '">' . esc_textarea( $r['text'] ) . '</textarea></label></div>';
 	}
-	echo '<div class="bc-row"><button class="bc-btn is-ghost" name="op" value="save">Save draft</button><button class="bc-btn" name="op" value="submit">Submit to agenda</button><a href="' . esc_url( brra_c_url( 'view', array( 'id' => $m['id'] ) ) ) . '">See the agenda</a></div></form>';
+	echo '<div class="bc-row"><button class="bc-btn is-ghost" name="op" value="save">Save draft</button><button class="bc-btn" name="op" value="submit">Submit to agenda</button><a href="' . esc_url( brra_c_url( 'reports', array( 'id' => $m['id'] ) ) ) . '">Back to reports</a></div></form>';
 }
 
 // ---------------------------------------------------------------- Live meeting.
@@ -767,6 +1096,7 @@ function brra_c_view_live() {
 	}
 	if ( 'open' !== $m['status'] ) {
 		brra_c_head( 'Committee meeting · ' . brra_c_date( $m['date'] ), 'Taking the minutes' );
+		brra_c_meeting_tabs( $m, 'live' );
 		echo '<div class="bc-card"><p>This meeting isn\'t open. ' . ( in_array( $m['status'], array( 'draft', 'sent' ), true ) ? 'Press Open meeting when the Chairman opens it.' : 'It has been closed.' ) . '</p>';
 		if ( in_array( $m['status'], array( 'draft', 'sent' ), true ) ) {
 			echo brra_c_form( 'meeting_open', array( 'id' => $m['id'] ) ) . '<button class="bc-btn is-gold">Open meeting</button></form>'; // phpcs:ignore WordPress.Security.EscapeOutput
@@ -780,7 +1110,8 @@ function brra_c_view_live() {
 	echo brra_c_form( 'live', array( 'id' => $m['id'] ), 'id="bc-live" data-ajax="' . esc_url( admin_url( 'admin-post.php' ) ) . '"' ); // phpcs:ignore WordPress.Security.EscapeOutput
 	echo '<div class="bc-live"><span class="bc-dot"></span><strong>Meeting open</strong><span class="bc-muted">Opened at <input type="time" name="opened" value="' . esc_attr( $m['opened'] ) . '" class="bc-time"> · <span id="bc-saved">saves as you type</span></span><button class="bc-btn is-sm" name="op" value="close" onclick="return confirm(\'Close the meeting and make the minutes?\')">Close meeting</button></div>';
 	echo '<div class="bc-eyebrow">Committee meeting · ' . brra_e( brra_c_date( $m['date'] ) ) . '</div><h1 class="bc-h1">Taking the minutes</h1>';
-	echo '<div class="bc-grid bc-live-grid"><div class="bc-card bc-att"><h3>Attendance</h3><table class="bc-table">';
+	brra_c_meeting_tabs( $m, 'live' );
+	echo '<div class="bc-grid bc-live-grid"><div class="bc-card bc-att"><div class="bc-row bc-sp"><h3>Attendance</h3><button type="button" class="bc-btn is-sm is-ghost bc-att-toggle" hidden>Change</button></div><p class="bc-att-sum" hidden></p><table class="bc-table bc-att-list">';
 	$present = 0;
 	foreach ( $people as $u ) {
 		$v        = isset( $m['att'][ $u->ID ] ) ? $m['att'][ $u->ID ] : '';
@@ -799,6 +1130,7 @@ function brra_c_view_live() {
 		'amended' => 'With amendments',
 		'no'      => 'Not approved',
 	);
+	$count = count( $m['items'] );
 	foreach ( $m['items'] as $it ) {
 		++$n;
 		$k = 'items[' . $it['key'] . ']';
@@ -842,6 +1174,7 @@ function brra_c_view_live() {
 			}
 			echo '<button type="button" class="bc-btn is-sm is-ghost bc-add-action">+ Add action</button></div>';
 		}
+		echo $n < $count ? '<div class="bc-item-foot"><button type="button" class="bc-btn is-sm is-ghost bc-next">Next item ↓</button></div>' : '';
 		echo '</div></div>';
 	}
 	echo '<div class="bc-row"><button class="bc-btn" name="op" value="save">Save</button><button class="bc-btn is-gold" name="op" value="close" onclick="return confirm(\'Close the meeting and make the minutes?\')">Close meeting</button></div>';
@@ -870,12 +1203,13 @@ function brra_c_view_minutes() {
 		return;
 	}
 	$st    = brra_meeting_status_label( $m['status'] );
-	$right = '<a class="bc-btn is-ghost" href="' . esc_url( brra_c_action_url( 'word', array( 'id' => $m['id'] ) ) ) . '">Download for Word</a><a class="bc-btn is-ghost" target="_blank" href="' . esc_url( brra_c_url( 'minutes', array( 'id' => $m['id'], 'print' => 1 ) ) ) . '">Print or save as PDF</a>';
+	$right = '<a class="bc-btn is-ghost bc-dl" href="' . esc_url( brra_c_action_url( 'word', array( 'id' => $m['id'] ) ) ) . '">Download for Word</a><a class="bc-btn is-ghost bc-dl" target="_blank" href="' . esc_url( brra_c_url( 'minutes', array( 'id' => $m['id'], 'print' => 1 ) ) ) . '">Print or save as PDF</a>';
 	if ( brra_can_manage_minutes( $m['id'] ) && 'closed' === $m['status'] ) {
 		$right .= brra_c_form( 'meeting_status', array( 'id' => $m['id'], 'set' => 'reopen' ) ) . '<button class="bc-btn is-ghost">Make changes</button></form>';
 		$right .= brra_c_form( 'meeting_status', array( 'id' => $m['id'], 'set' => 'approved' ) ) . '<button class="bc-btn">Mark as approved</button></form>';
 	}
 	brra_c_head( $st[0] . ( 'approved' === $m['status'] && $m['approved'] ? ' on ' . brra_c_date( $m['approved'], 'j F Y' ) : '' ), 'Minutes, ' . brra_c_date( $m['date'], 'j F Y' ), $right );
+	brra_c_meeting_tabs( $m, 'minutes' );
 	echo '<div class="bc-doc-wrap"><div class="bc-doc">' . brra_render_minutes_doc( $m ) . '</div></div>'; // phpcs:ignore WordPress.Security.EscapeOutput
 }
 
@@ -883,10 +1217,63 @@ function brra_c_view_minutes() {
  * Styles shared by the minutes on screen, in print and in Word.
  */
 function brra_doc_css() {
-	return '.bd{font-family:Arial,sans-serif;font-size:10.5pt;color:#0B1626}.bd h1{font-size:22pt;margin:0;color:#050F1C}.bd .bd-sub{color:#3E4C60;margin:2pt 0 10pt}'
+	return '.bd{font-family:Arial,sans-serif;font-size:10.5pt;color:#0B1626}.bd h1{font-family:Arial,sans-serif;font-weight:bold;text-transform:none;line-height:1.15;font-size:22pt;letter-spacing:1.5pt;margin:0;color:#0B1626}.bd .bd-sub{color:#3E4C60;margin:2pt 0 10pt}'
 		. '.bd table{width:100%;border-collapse:collapse;margin:0 0 8pt}.bd td,.bd th{border:1px solid #c9d2dd;padding:5pt 7pt;vertical-align:top;text-align:left;font-size:10pt}'
-		. '.bd th{background:#F3F5F8;font-weight:bold}.bd td.l{width:32%;background:#F3F5F8;font-weight:bold}.bd .band{background:#050F1C;color:#fff;font-weight:bold;letter-spacing:1pt;padding:4pt 7pt;margin:12pt 0 0}'
-		. '.bd .ih{background:#F3F5F8;font-weight:bold}.bd .gold{border-top:3pt solid #D4AF37;margin:0 0 10pt}';
+		. '.bd th{background:#0B1626;color:#fff;font-weight:bold}.bd td.l{width:30%;background:#EEF0F4;font-weight:bold}'
+		. '.bd .band{font-weight:bold;letter-spacing:1.5pt;font-size:10.5pt;color:#0B1626;border-bottom:1pt solid #D4AF37;padding:0 0 3pt;margin:14pt 0 8pt}'
+		. '.bd .it{font-weight:bold;font-size:10.5pt;margin:10pt 0 4pt}.bd .ih{background:#EEF0F4;font-weight:bold}'
+		. '.bd .lh td{border:0}.bd .lh-rule{border-top:2.25pt solid #0B1626;margin:4pt 0 14pt}'
+		. '.bd .bd-foot{border-top:.75pt solid #D4AF37;margin-top:18pt;padding-top:4pt;font-size:8pt;color:#3E4C60}'
+		. '.bd .bd-pt{margin:0}.bd .bd-pt>thead>tr>td,.bd .bd-pt>tbody>tr>td{border:0;padding:0;font-size:inherit}';
+}
+
+/**
+ * The Association's letterhead: crest, name, strapline and contact line, with a rule under it.
+ * Inline styles so it holds together in Word's page header too.
+ */
+function brra_doc_letterhead() {
+	$logo = BRRA_SITE_URL . 'assets/doc-logo.png';
+	return '<table class="lh" style="width:100%;border-collapse:collapse;border:0;margin:0"><tr>'
+		. '<td style="width:58pt;border:0;padding:0 10pt 4pt 0;vertical-align:middle"><img src="' . esc_url( $logo ) . '" width="52" height="64" alt="BRRA crest" style="display:block"></td>'
+		. '<td style="border:0;padding:0 0 4pt;vertical-align:middle;font-family:Arial,sans-serif">'
+		. '<div style="font-size:13pt;font-weight:bold;letter-spacing:1.5pt;color:#0B1626">BURY &amp; ROCHDALE REFEREES&#39; ASSOCIATION</div>'
+		. '<div style="font-size:9pt;font-style:italic;color:#3E4C60;margin-top:2pt">Supporting, Training &amp; Developing Match Officials since 1898</div>'
+		. '<div style="font-size:8pt;color:#3E4C60;margin-top:1pt">mail@buryrefs.org.uk &nbsp;|&nbsp; www.buryrefs.org.uk &nbsp;|&nbsp; @buryreferees</div>'
+		. '</td></tr></table><div class="lh-rule" style="border-top:2.25pt solid #0B1626;margin:4pt 0 14pt;font-size:1pt;line-height:1pt">&nbsp;</div>';
+}
+
+/**
+ * The values line that closes each page.
+ */
+function brra_doc_values() {
+	return 'Reliability &nbsp;|&nbsp; Integrity &nbsp;|&nbsp; Honesty &nbsp;|&nbsp; Respect &nbsp;|&nbsp; Commitment';
+}
+
+/**
+ * Wrap a document body with the letterhead.
+ * On screen it shows once at the top (one continuous roll). In print it sits in a table header,
+ * which the browser repeats on every page. In Word the header and footer are added as page sections.
+ *
+ * @param string $body Body HTML.
+ * @param string $mode screen, print or word.
+ */
+function brra_doc_page( $body, $mode = 'screen' ) {
+	if ( 'word' === $mode ) {
+		return '<div class="bd">' . $body . '</div>';
+	}
+	if ( 'print' === $mode ) {
+		return '<div class="bd"><table class="bd-pt"><thead><tr><td>' . brra_doc_letterhead() . '</td></tr></thead><tbody><tr><td>' . $body . '</td></tr></tbody></table></div>';
+	}
+	return '<div class="bd">' . brra_doc_letterhead() . $body . '<div class="bd-foot">' . brra_doc_values() . '</div></div>';
+}
+
+/**
+ * Print page set-up: A4, with the values line and page number in the page footer.
+ */
+function brra_doc_print_css() {
+	$f = 'font:8pt Arial,sans-serif;color:#3E4C60;border-top:.75pt solid #D4AF37;vertical-align:top;padding-top:4pt';
+	return '<style>@page{size:A4;margin:12mm 15mm 16mm;@bottom-left{content:"Reliability  |  Integrity  |  Honesty  |  Respect  |  Commitment";' . $f . '}@bottom-center{content:"";' . $f . '}@bottom-right{content:"Page " counter(page);' . $f . '}}'
+		. '@media print{body{background:#fff!important}.bc-print{margin:0!important;padding:0!important}}</style>';
 }
 
 /**
@@ -913,10 +1300,10 @@ function brra_doc_text( $t ) {
  *
  * @param array $m Meeting.
  */
-function brra_render_minutes_doc( $m ) {
+function brra_render_minutes_doc( $m, $mode = 'screen' ) {
 	$chair   = $m['chair'] ? $m['chair'] : brra_committee_holder( 'chair' );
 	$minuter = $m['minuter'] ? $m['minuter'] : brra_committee_holder( 'secretary' );
-	$out     = '<div class="bd"><div class="gold"></div><h1>MINUTES</h1><div class="bd-sub">Committee Meeting &nbsp;|&nbsp; ' . brra_e( brra_c_date_long( $m['date'] ) ) . ( 'approved' === $m['status'] ? '' : ' &nbsp;|&nbsp; DRAFT' ) . '</div><table>';
+	$out     = '<h1>MINUTES</h1><div class="bd-sub">Committee Meeting &nbsp;|&nbsp; ' . brra_e( brra_c_date_long( $m['date'] ) ) . ( 'approved' === $m['status'] ? '' : ' &nbsp;|&nbsp; DRAFT' ) . '</div><table>';
 	$out    .= brra_doc_row( 'Date and time', brra_e( brra_c_date_long( $m['date'] ) . ', ' . $m['time'] ) );
 	$out    .= brra_doc_row( 'Venue', brra_e( $m['venue'] ) );
 	$out    .= brra_doc_row( 'Chair', brra_e( $chair ? brra_c_name( $chair ) . ', ' . brra_committee_title( $chair ) : '' ) );
@@ -947,7 +1334,7 @@ function brra_render_minutes_doc( $m ) {
 	foreach ( $m['items'] as $it ) {
 		++$n;
 		$f    = $it['f'];
-		$out .= '<table><tr><td colspan="2" class="ih">' . (int) $n . '.&nbsp; ' . brra_e( $it['title'] ) . '</td></tr>';
+		$out .= '<div class="it">' . (int) $n . '.&nbsp; ' . brra_e( $it['title'] ) . '</div><table>';
 		if ( 'welcome' === $it['kind'] ) {
 			$out .= brra_doc_row( 'Apologies received', brra_e( ! empty( $f['apologies'] ) ? $f['apologies'] : implode( ', ', $apols ) ) );
 		}
@@ -1003,8 +1390,8 @@ function brra_render_minutes_doc( $m ) {
 	if ( ! $all ) {
 		$out .= '<tr><td colspan="4">No actions.</td></tr>';
 	}
-	$out .= '</table><div class="band">CLOSE</div><p>Meeting closed at ' . brra_e( $m['closed'] ? $m['closed'] : '______________' ) . '.</p></div>';
-	return $out;
+	$out .= '</table><div class="band">CLOSE</div><p>Meeting closed at ' . brra_e( $m['closed'] ? $m['closed'] : '______________' ) . '.</p>';
+	return brra_doc_page( $out, $mode );
 }
 
 /**
@@ -1012,8 +1399,8 @@ function brra_render_minutes_doc( $m ) {
  *
  * @param array $m Meeting.
  */
-function brra_render_agenda_doc( $m ) {
-	$out = '<div class="bd"><div class="gold"></div><h1>AGENDA</h1><div class="bd-sub">Committee Meeting &nbsp;|&nbsp; ' . brra_e( brra_c_date_long( $m['date'] ) ) . '</div><table>';
+function brra_render_agenda_doc( $m, $mode = 'screen' ) {
+	$out = '<h1>AGENDA</h1><div class="bd-sub">Committee Meeting &nbsp;|&nbsp; ' . brra_e( brra_c_date_long( $m['date'] ) ) . '</div><table>';
 	$out .= brra_doc_row( 'Date and time', brra_e( brra_c_date_long( $m['date'] ) . ', ' . $m['time'] ) ) . brra_doc_row( 'Venue', brra_e( $m['venue'] ) ) . '</table><div class="band">BUSINESS</div><table>';
 	$n    = 0;
 	foreach ( $m['items'] as $it ) {
@@ -1024,7 +1411,7 @@ function brra_render_agenda_doc( $m ) {
 		}
 		$out .= '<tr><td style="width:8%">' . (int) $n . '.</td><td>' . brra_e( $it['title'] ) . $subs . '</td><td style="width:26%">' . brra_e( $it['lead'] ? brra_c_name( $it['lead'] ) : '' ) . '</td></tr>';
 	}
-	return $out . '</table></div>';
+	return brra_doc_page( $out . '</table>', $mode );
 }
 
 // ---------------------------------------------------------------- Actions.
@@ -1051,7 +1438,7 @@ function brra_c_view_actions() {
 		$tabs         .= '<a class="bc-btn is-sm' . ( $s === $show && $w === $who ? '' : ' is-ghost' ) . '" href="' . esc_url( brra_c_url( 'actions', array( 'show' => $s, 'who' => $w ) ) ) . '">' . brra_e( $l ) . '</a>';
 	}
 	brra_c_head( 'Actions', 'Who is doing what', $tabs, 'Every action from the minutes. Open actions are carried forward to the next agenda under Matters arising.' );
-	echo '<div class="bc-card">' . ( $list ? '<table class="bc-table"><thead><tr><th>Action</th><th>Who</th><th>Due</th><th></th></tr></thead>' . brra_c_action_rows( $list, true, 'actions' ) . '</table>' : '<p class="bc-muted">Nothing here.</p>' ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput
+	echo '<div class="bc-card">' . ( $list ? '<table class="bc-table"><thead><tr><th>Action</th><th>Who</th><th>Due</th><th></th></tr></thead>' . brra_c_action_rows( $list, true, 'actions' ) . '</table>' : '<p class="bc-empty">' . ( 'mine' === $who ? 'Nothing waiting on you.' : 'No actions here. Actions are added while taking the minutes.' ) . '</p>' ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput
 }
 
 // ---------------------------------------------------------------- Finance.
@@ -1062,7 +1449,7 @@ function brra_c_view_actions() {
 function brra_c_view_finance() {
 	$entries = brra_finance_entries();
 	$can     = brra_can_manage_finance() || brra_has_committee_role( 'secretary' );
-	brra_c_head( 'Finance', 'Bank balance tracker', '', 'Enter the balance from the statement. The change since the last entry is worked out, and the figures go into the Treasurer\'s item on the agenda automatically.' );
+	brra_c_head( 'Finance', 'Bank balance', '', 'Enter the balance from the statement. The change since the last entry is worked out, and the figures go into the Treasurer\'s item on the agenda automatically.' );
 	$last = $entries ? end( $entries ) : null;
 	echo '<div class="bc-grid bc-g2n">';
 	if ( $can ) {
@@ -1100,29 +1487,9 @@ function brra_c_view_finance() {
 		echo $can ? '<td><a href="' . esc_url( brra_c_action_url( 'finance_remove', array( 'eid' => $e['id'] ) ) ) . '" onclick="return confirm(\'Remove this entry?\')">Remove</a></td>' : '';
 		echo '</tr>';
 	}
-	echo $rows ? '' : '<tr><td colspan="5" class="bc-muted">Nothing yet.</td></tr>';
+	echo $rows ? '' : '<tr><td colspan="5" class="bc-empty">No balances yet. ' . ( $can ? 'Enter the first one from the bank statement above.' : 'The Treasurer enters them from the bank statement.' ) . '</td></tr>';
 	echo '</tbody></table></div>';
 
-	$draws = brra_100club_draws();
-	echo '<div class="bc-card"><h3>100 Club prizes</h3><p class="bc-muted">Drawn on MDS nights and entered from Event night. Tick them off once paid.</p>';
-	if ( $draws ) {
-		echo '<table class="bc-table"><thead><tr><th>Draw</th><th>Place</th><th>Number</th><th>Holder</th><th>Prize</th><th></th></tr></thead><tbody>';
-		foreach ( $draws as $d ) {
-			foreach ( $d['places'] as $p => $row ) {
-				if ( ! $row['holder'] || ! $row['prize'] ) {
-					continue;
-				}
-				$paid = ! empty( $row['paid'] );
-				echo '<tr><td>' . brra_e( brra_c_date( $d['date'], 'j M Y' ) ) . '</td><td>' . brra_e( array( '1st', '2nd', '3rd', '4th' )[ $p ] ) . '</td><td>' . brra_e( $row['num'] ) . '</td><td>' . brra_e( $row['holder'] ) . '</td><td>£' . brra_e( $row['prize'] ) . '</td><td>';
-				echo brra_can_manage_finance() ? '<a class="bc-btn is-sm' . ( $paid ? ' is-ghost' : '' ) . '" href="' . esc_url( brra_c_action_url( 'prize_paid', array( 'event' => $d['event'], 'place' => $p, 'paid' => $paid ? 0 : 1 ) ) ) . '">' . ( $paid ? 'Paid ✓' : 'Mark paid' ) . '</a>' : ( $paid ? brra_pill( 'Paid', 'g' ) : brra_pill( 'To pay', 'a' ) ); // phpcs:ignore WordPress.Security.EscapeOutput
-				echo '</td></tr>';
-			}
-		}
-		echo '</tbody></table>';
-	} else {
-		echo '<p class="bc-muted">No draws recorded yet.</p>';
-	}
-	echo '</div>';
 }
 
 // ---------------------------------------------------------------- Files.
@@ -1135,37 +1502,58 @@ function brra_c_view_files() {
 	$folders = brra_file_folders();
 	$cur     = sanitize_key( brra_c_in( 'folder' ) );
 	$cur     = isset( $folders[ $cur ] ) ? $cur : '';
-	brra_c_head( 'Files', 'Committee files', '', 'Only committee members can open these. Finance files are for the Treasurer and Chairman; membership files for the Membership Secretary and Secretary.' );
-	echo '<div class="bc-row bc-wrap bc-folders"><a class="bc-btn is-sm' . ( $cur ? ' is-ghost' : '' ) . '" href="' . esc_url( brra_c_url( 'files' ) ) . '">All</a>';
+	$fseason = absint( brra_c_in( 'season' ) );
+	$fs      = function ( $f ) {
+		return ! empty( $f['season'] ) ? (int) $f['season'] : (int) brra_current_season( strtotime( $f['at'] ) )[0];
+	};
+	$seasons = array_unique( array_map( $fs, $files ) );
+	rsort( $seasons );
+	$pick = '<form method="get" class="bc-season-pick"><input type="hidden" name="view" value="files"><input type="hidden" name="folder" value="' . esc_attr( $cur ) . '"><select name="season" onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"><option value="0">All seasons</option>';
+	foreach ( $seasons as $s ) {
+		$pick .= '<option value="' . (int) $s . '"' . selected( $fseason, $s, false ) . '>Season ' . brra_e( brra_season_label( $s ) ) . '</option>';
+	}
+	$pick .= '</select><noscript><button class="bc-btn is-sm">Show</button></noscript></form>';
+	brra_c_head( 'Files', 'Committee files', $pick, 'Only committee members can open these. Finance files are for the Treasurer and Chairman; membership files for the Membership Secretary and Secretary.' );
+	echo '<div class="bc-row bc-wrap bc-folders"><a class="bc-btn is-sm' . ( $cur ? ' is-ghost' : '' ) . '" href="' . esc_url( brra_c_url( 'files', $fseason ? array( 'season' => $fseason ) : array() ) ) . '">All</a>';
 	foreach ( $folders as $k => $f ) {
 		if ( brra_can_open_folder( $k ) ) {
-			echo '<a class="bc-btn is-sm' . ( $cur === $k ? '' : ' is-ghost' ) . '" href="' . esc_url( brra_c_url( 'files', array( 'folder' => $k ) ) ) . '">' . brra_e( $f[0] ) . ( $f[1] ? ' 🔒' : '' ) . '</a>';
+			echo '<a class="bc-btn is-sm' . ( $cur === $k ? '' : ' is-ghost' ) . '" href="' . esc_url( brra_c_url( 'files', array_filter( array( 'folder' => $k, 'season' => $fseason ) ) ) ) . '">' . brra_e( $f[0] ) . ( $f[1] ? ' 🔒' : '' ) . '</a>';
 		}
 	}
 	echo '</div><div class="bc-grid bc-g2w"><div class="bc-card"><table class="bc-table"><thead><tr><th>File</th><th>Folder</th><th>Added</th><th></th></tr></thead><tbody>';
 	uasort(
 		$files,
-		function ( $a, $b ) {
-			return strcmp( $b['at'], $a['at'] );
+		function ( $a, $b ) use ( $fs ) {
+			return $fs( $b ) - $fs( $a ) ? $fs( $b ) - $fs( $a ) : strcmp( $b['at'], $a['at'] );
 		}
 	);
 	$shown = 0;
+	$group = null;
 	foreach ( $files as $id => $f ) {
-		if ( ( $cur && $f['folder'] !== $cur ) || ! brra_can_open_folder( $f['folder'] ) ) {
+		if ( ( $cur && $f['folder'] !== $cur ) || ! brra_can_open_folder( $f['folder'] ) || ( $fseason && $fs( $f ) !== $fseason ) ) {
 			continue;
 		}
 		++$shown;
-		$del = ( (int) $f['by'] === get_current_user_id() || brra_can_manage_committee() ) ? ' · <a href="' . esc_url( brra_c_action_url( 'file_delete', array( 'fid' => $id ) ) ) . '" onclick="return confirm(\'Delete this file?\')">Delete</a>' : '';
-		echo '<tr><td><a href="' . esc_url( brra_c_action_url( 'file', array( 'fid' => $id ) ) ) . '"><strong>' . brra_e( $f['name'] ) . '</strong></a><div class="bc-muted">' . brra_e( $f['orig'] . ' · ' . size_format( $f['size'] ) ) . '</div></td><td class="bc-muted">' . brra_e( $folders[ $f['folder'] ][0] ) . '</td><td class="bc-muted">' . brra_e( strtok( brra_c_name( $f['by'] ), ' ' ) . ' · ' . mysql2date( 'j M Y', $f['at'] ) ) . '</td><td>' . $del . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput
+		if ( ! $fseason && $group !== $fs( $f ) ) {
+			$group = $fs( $f );
+			echo '<tr class="bc-group-row"><th colspan="4">Season ' . brra_e( brra_season_label( $group ) ) . '</th></tr>';
+		}
+		$del = ( (int) $f['by'] === get_current_user_id() || brra_can_manage_committee() ) ? '<a class="bc-link-danger" href="' . esc_url( brra_c_action_url( 'file_delete', array( 'fid' => $id ) ) ) . '" onclick="return confirm(\'Delete this file?\')">Delete</a>' : '';
+		echo '<tr><td><a class="bc-dl" href="' . esc_url( brra_c_action_url( 'file', array( 'fid' => $id ) ) ) . '"><strong>' . brra_e( $f['name'] ) . '</strong></a><div class="bc-muted">' . brra_e( $f['orig'] . ' · ' . size_format( $f['size'] ) ) . '</div></td><td class="bc-muted">' . brra_e( $folders[ $f['folder'] ][0] ) . '</td><td class="bc-muted">' . brra_e( strtok( brra_c_name( $f['by'] ), ' ' ) . ' · ' . mysql2date( 'j M Y', $f['at'] ) ) . '</td><td>' . $del . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput
 	}
-	echo $shown ? '' : '<tr><td colspan="4" class="bc-muted">No files here yet.</td></tr>';
+	echo $shown ? '' : '<tr><td colspan="4" class="bc-empty">No files here yet.' . ( brra_committee_can_edit() ? ' Add one using the form.' : '' ) . '</td></tr>';
 	echo '</tbody></table></div>';
 	if ( brra_committee_can_edit() ) {
-		echo '<div class="bc-card"><h3>Add a file</h3>' . brra_c_form( 'file_upload', array(), 'class="bc-form" enctype="multipart/form-data"' ) . '<input type="file" name="file" required><input type="text" name="title" placeholder="Name (optional)"><label>Folder<select name="folder">'; // phpcs:ignore WordPress.Security.EscapeOutput
+		$now = (int) brra_current_season()[0];
+		echo '<div class="bc-card"><h3>Add a file</h3>' . brra_c_form( 'file_upload', array(), 'class="bc-form" enctype="multipart/form-data"' ) . '<input type="file" name="file" required><input type="text" name="title" placeholder="Name (optional)"><label class="bc-stack">Folder<select name="folder">'; // phpcs:ignore WordPress.Security.EscapeOutput
 		foreach ( $folders as $k => $f ) {
 			if ( brra_can_open_folder( $k ) ) {
 				echo '<option value="' . esc_attr( $k ) . '"' . selected( $cur, $k, false ) . '>' . brra_e( $f[0] ) . '</option>';
 			}
+		}
+		echo '</select></label><label class="bc-stack">Season<select name="season">';
+		foreach ( range( $now + 1, $now - 3 ) as $s ) {
+			echo '<option value="' . (int) $s . '"' . selected( $fseason ? $fseason : $now, $s, false ) . '>' . brra_e( brra_season_label( $s ) ) . ( $now === $s ? ' (now)' : '' ) . '</option>';
 		}
 		echo '</select></label><button class="bc-btn">Upload</button></form><p class="bc-muted">PDF, Word, Excel, PowerPoint, CSV, text or images.</p></div>';
 	}
@@ -1235,7 +1623,7 @@ function brra_c_view_calendar() {
 	$season = absint( brra_c_in( 'season', (string) $cur ) );
 	$season = $season > 1990 ? $season : $cur;
 	$nav    = '<a class="bc-btn is-sm is-ghost" href="' . esc_url( brra_c_url( 'calendar', array( 'season' => $season - 1 ) ) ) . '">← ' . ( $season - 1 ) . '-' . substr( (string) $season, 2 ) . '</a><a class="bc-btn is-sm is-ghost" href="' . esc_url( brra_c_url( 'calendar', array( 'season' => $season + 1 ) ) ) . '">' . ( $season + 1 ) . '-' . substr( (string) ( $season + 2 ), 2 ) . ' →</a>';
-	brra_c_head( 'Season ' . $season . '-' . substr( (string) ( $season + 1 ), 2 ), 'Season calendar', $nav, 'MDS nights and events come from the website\'s events, committee meetings from Meetings. Add deadlines and anything else below.' );
+	brra_c_head( 'Events · season ' . brra_season_label( $season ), 'Calendar', $nav, 'MDS nights and events come from the website\'s events, committee meetings from Meetings. Add deadlines and anything else below.' );
 	$entries = brra_calendar_entries( $season );
 	$months  = array();
 	for ( $i = 0; $i < 12; $i++ ) {
@@ -1279,7 +1667,7 @@ function brra_c_view_speakers() {
 	$edit     = sanitize_key( brra_c_in( 'edit' ) );
 	$all      = brra_speakers();
 	$statuses = brra_speaker_statuses();
-	brra_c_head( 'Season', 'Guest speakers', '', 'Who we\'ve had, their topic and who\'s booked. Whoever runs the event adds the speaker; everyone on the committee can see and edit.' );
+	brra_c_head( 'Events', 'Guest speakers', '', 'Who we\'ve had, their topic and who\'s booked. Whoever runs the event adds the speaker; everyone on the committee can see and edit.' );
 	echo '<form method="get" class="bc-row bc-search"><input type="hidden" name="view" value="speakers"><input type="search" name="q" value="' . esc_attr( $q ) . '" placeholder="Search name or topic"><button class="bc-btn is-sm is-ghost">Search</button></form>';
 	echo '<div class="bc-grid bc-g2w"><div class="bc-card"><table class="bc-table"><thead><tr><th>Date</th><th>Speaker</th><th>Topic</th><th>Status</th><th>Notes</th><th></th></tr></thead><tbody>';
 	$shown = 0;
@@ -1291,7 +1679,7 @@ function brra_c_view_speakers() {
 		$st = isset( $statuses[ $s['status'] ] ) ? $statuses[ $s['status'] ] : array( $s['status'], '' );
 		echo '<tr><td>' . brra_e( $s['date'] ? brra_c_date( $s['date'], 'j M Y' ) : 'No date' ) . '</td><td><strong>' . brra_e( $s['name'] ? $s['name'] : 'Not booked' ) . '</strong><div class="bc-muted">added by ' . brra_e( strtok( brra_c_name( $s['by'] ), ' ' ) ) . '</div></td><td>' . brra_e( $s['topic'] ) . '</td><td>' . brra_pill( $st[0], $st[1] ) . '</td><td class="bc-muted">' . brra_e( $s['notes'] ) . '</td><td>' . ( brra_committee_can_edit() ? '<a href="' . esc_url( brra_c_url( 'speakers', array( 'edit' => $id ) ) ) . '">Edit</a>' : '' ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput
 	}
-	echo $shown ? '' : '<tr><td colspan="6" class="bc-muted">No speakers ' . ( $q ? 'match that.' : 'yet.' ) . '</td></tr>';
+	echo $shown ? '' : '<tr><td colspan="6" class="bc-empty">' . ( $q ? 'No speakers match that.' : 'No speakers yet. Add the first one using the form.' ) . '</td></tr>';
 	echo '</tbody></table></div>';
 	if ( brra_committee_can_edit() ) {
 		$s = $edit && isset( $all[ $edit ] ) ? $all[ $edit ] : array( 'date' => '', 'name' => '', 'topic' => '', 'status' => 'confirmed', 'notes' => '' );
