@@ -367,7 +367,9 @@ function brra_c_view_meetings() {
 	}
 	echo $all ? '' : '<tr><td colspan="3" class="bc-muted">No meetings yet.</td></tr>';
 	echo '</tbody></table></div>';
-	brra_committee_attendance_card( $all );
+	if ( brra_can_manage_committee() ) {
+		brra_committee_attendance_card( $all );
+	}
 	echo '</div><div>';
 	if ( brra_can_manage_minutes() ) {
 		$last = $all ? $all[0]['date'] : current_time( 'Y-m-d' );
@@ -396,7 +398,7 @@ function brra_committee_attendance_card( $all ) {
 			return in_array( $m['status'], array( 'open', 'closed', 'approved' ), true ) && $m['date'] >= $from && $m['date'] <= $to;
 		}
 	);
-	echo '<div class="bc-card"><h3>Committee attendance, ' . (int) $season[0] . '/' . brra_e( substr( (string) $season[1], 2 ) ) . '</h3>';
+	echo '<div class="bc-card"><h3>Committee attendance, ' . (int) $season[0] . '/' . brra_e( substr( (string) $season[1], 2 ) ) . '</h3><p class="bc-muted">Only the Secretary and Chairman can see this.</p>';
 	if ( ! $held ) {
 		echo '<p class="bc-muted">No meetings held yet this season.</p></div>';
 		return;
