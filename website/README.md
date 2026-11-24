@@ -1,6 +1,6 @@
 # buryrefs.org.uk on WordPress (test copy)
 
-The WordPress version of the Bury & Rochdale RA website, built to replace the Wix site before it renews in January 2027. The full plan is in the project files at `web/wordpress-redevelopment-plan.md`.
+The WordPress version of Bury & Rochdale RA website, built to replace the Wix site before it renews in January 2027. The full plan is in the project files at `web/wordpress-redevelopment-plan.md`.
 
 ## Try it
 

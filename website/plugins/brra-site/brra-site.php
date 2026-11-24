@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: BRRA Site
- * Description: Events, committee and membership rules for the Bury & Rochdale Referees' Association website.
+ * Description: Events, committee and membership rules for Bury & Rochdale Referees' Association website.
  * Version: 0.5.0
  * Author: Bury & Rochdale RA
  * License: GPL-2.0-or-later
@@ -20,6 +20,7 @@ define( 'BRRA_SITE_VERSION', '0.5.0' );
 require_once __DIR__ . '/includes/events.php';
 require_once __DIR__ . '/includes/people.php';
 require_once __DIR__ . '/includes/membership.php';
+require_once __DIR__ . '/includes/welcome-email.php';
 require_once __DIR__ . '/includes/contact.php';
 require_once __DIR__ . '/includes/attendance.php';
 require_once __DIR__ . '/includes/newsletter.php';

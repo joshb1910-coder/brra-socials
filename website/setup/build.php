@@ -187,8 +187,8 @@ function brra_build_level( $data ) {
 $brra_full = brra_build_level(
 	array(
 		'name'            => 'Full Member',
-		'description'     => 'Full membership of the Bury & Rochdale Referees\' Association for the season.',
-		'confirmation'    => "<p>Thanks for joining the Bury & Rochdale RA. You'll get a confirmation email shortly with the link to join our members' WhatsApp community, for news, updates and the chance to get your games published.</p>",
+		'description'     => 'Full membership of Bury & Rochdale Referees\' Association for the season.',
+		'confirmation'    => "<p>Thanks for joining Bury & Rochdale RA. You'll get a confirmation email shortly with the link to join our members' WhatsApp community, for news, updates and the chance to get your games published.</p>",
 		'initial_payment' => 20,
 	)
 );
@@ -228,12 +228,12 @@ update_option( 'pmpro_from_email', 'mail@buryrefs.org.uk' );
 update_option( 'pmpro_from_name', "Bury & Rochdale Referees' Association" );
 update_option( 'pmpro_email_header_body', '<p>Hi !!header_name!!,</p>' );
 update_option( 'pmpro_email_footer_body', "<p>Best wishes,<br>Bury &amp; Rochdale Referees' Association<br><a href=\"mailto:mail@buryrefs.org.uk\">mail@buryrefs.org.uk</a></p>" );
-$brra_welcome = "<p>Thanks for joining the Bury &amp; Rochdale Referees' Association. You're now a {{ membership_level_name }}, and we're really glad to have you.</p>\n\n" .
+$brra_welcome = "<p>Thanks for joining Bury &amp; Rochdale Referees' Association. You're now a {{ membership_level_name }}, and we're really glad to have you.</p>\n\n" .
 	"<p><strong>What happens next</strong></p>\n" .
 	"<ul>\n<li>{{ brra_whatsapp }}</li>\n" .
 	"<li>Come along to our next Development Session: the first Thursday of the month, doors 7.00pm, at St Mary's Social Club, Pine Street, Radcliffe, M26 2WQ. <a href=\"{{ brra_events_url }}\">See what's on</a>.</li>\n" .
 	"<li>If you need help with anything, from a tricky game to your next promotion, just reply to this email.</li>\n</ul>\n\n";
-update_option( 'pmpro_email_checkout_paid_subject', "Welcome to the Bury & Rochdale RA" );
+update_option( 'pmpro_email_checkout_paid_subject', "Welcome to Bury & Rochdale RA" );
 update_option(
 	'pmpro_email_checkout_paid_body',
 	$brra_welcome .
@@ -241,7 +241,7 @@ update_option(
 	"{% if membership_expiration %}{{ membership_expiration }}{% endif %}\n\n" .
 	"<p>You can see your membership and update your details at any time: <a href=\"{{ login_url }}\">log in to My Account</a>.</p>"
 );
-update_option( 'pmpro_email_checkout_free_subject', "Welcome to the Bury & Rochdale RA" );
+update_option( 'pmpro_email_checkout_free_subject', "Welcome to Bury & Rochdale RA" );
 update_option(
 	'pmpro_email_checkout_free_body',
 	$brra_welcome .

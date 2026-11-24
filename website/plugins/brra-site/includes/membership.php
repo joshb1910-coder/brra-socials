@@ -283,7 +283,7 @@ function brra_membership_admin_page() {
 					<th scope="row"><label for="whatsapp_url">WhatsApp invite link</label></th>
 					<td>
 						<input type="url" id="whatsapp_url" name="whatsapp_url" class="regular-text" value="<?php echo esc_attr( get_option( 'brra_whatsapp_url', '' ) ); ?>" placeholder="https://chat.whatsapp.com/...">
-						<p class="description">The invite link to the members' WhatsApp community. It goes in the welcome email new members get. Leave blank and the email says the Membership Secretary will add them.</p>
+						<p class="description">The invite link to the members' WhatsApp community. It goes in the welcome email new members get. Leave blank and the email says the Membership Secretary will add them. <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=brra_welcome_preview' ), 'brra_welcome_preview' ) ); ?>" target="_blank">Preview the welcome email</a></p>
 					</td>
 				</tr>
 				<tr>
