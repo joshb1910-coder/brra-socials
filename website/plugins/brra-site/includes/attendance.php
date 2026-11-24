@@ -352,8 +352,31 @@ add_action(
 	'admin_menu',
 	function () {
 		add_submenu_page( 'edit.php?post_type=brra_event', 'Attendance', 'Attendance', 'edit_posts', 'brra-attendance', 'brra_attendance_page' );
+		// Committee members who can't edit the website still get the event-night screen.
+		if ( ! current_user_can( 'edit_posts' ) && function_exists( 'brra_is_committee' ) && brra_is_committee() ) {
+			add_menu_page( 'Event night', 'Event night', 'read', 'brra-event-night', 'brra_attendance_page', 'dashicons-groups', 3 );
+		}
 	}
 );
+
+/**
+ * Can this person use the Attendance screen? Website editors and the committee.
+ */
+function brra_can_attendance() {
+	return current_user_can( 'edit_posts' ) || ( function_exists( 'brra_is_committee' ) && brra_is_committee() );
+}
+
+/**
+ * Link to the Attendance screen (Events > Attendance, or "Event night" for committee members).
+ *
+ * @param array $args Query args.
+ */
+function brra_attendance_admin_url( $args = array() ) {
+	if ( current_user_can( 'edit_posts' ) ) {
+		return add_query_arg( array_merge( array( 'post_type' => 'brra_event', 'page' => 'brra-attendance' ), $args ), admin_url( 'edit.php' ) );
+	}
+	return add_query_arg( array_merge( array( 'page' => 'brra-event-night' ), $args ), admin_url( 'admin.php' ) );
+}
 
 /**
  * All events, newest first, for the picker.
@@ -408,7 +431,12 @@ function brra_attendance_page() {
 		echo '<p>Add an event first.</p></div>';
 		return;
 	}
-	echo '<form method="get" style="margin:12px 0"><input type="hidden" name="post_type" value="brra_event"><input type="hidden" name="page" value="brra-attendance"><select name="event">';
+	if ( ! brra_can_attendance() ) {
+		echo '<p>Sorry, you are not allowed to do that.</p></div>';
+		return;
+	}
+	$edit = current_user_can( 'edit_posts' );
+	echo '<form method="get" action="' . esc_url( admin_url( $edit ? 'edit.php' : 'admin.php' ) ) . '" style="margin:12px 0">' . ( $edit ? '<input type="hidden" name="post_type" value="brra_event"><input type="hidden" name="page" value="brra-attendance">' : '<input type="hidden" name="page" value="brra-event-night">' ) . '<select name="event">';
 	foreach ( $events as $e ) {
 		$start = brra_event_time( $e->ID );
 		echo '<option value="' . esc_attr( $e->ID ) . '"' . selected( $e->ID, $event_id, false ) . '>' . esc_html( ( $start ? wp_date( 'j M Y', $start->getTimestamp() ) . ': ' : '' ) . get_the_title( $e ) ) . '</option>';
@@ -465,6 +493,8 @@ function brra_attendance_page() {
 		echo '<option>' . esc_html( $o ) . '</option>';
 	}
 	echo '</select><label><input type="checkbox" name="contact_ok" value="1"> They\'re happy to be contacted about events and news</label><p><button class="button button-primary">Add</button></p></form>';
+
+	brra_100club_box( $event_id );
 
 	brra_attendance_season_summary();
 	echo '</div>';
@@ -523,7 +553,7 @@ function brra_attendance_season_summary() {
  * @param string $action Nonce action.
  */
 function brra_attendance_guard( $action ) {
-	if ( ! current_user_can( 'edit_posts' ) ) {
+	if ( ! brra_can_attendance() ) {
 		wp_die( 'Sorry, you are not allowed to do that.' );
 	}
 	check_admin_referer( $action );
@@ -536,7 +566,7 @@ function brra_attendance_guard( $action ) {
  * @param array $args     Extra query args.
  */
 function brra_attendance_back( $event_id, $args = array() ) {
-	wp_safe_redirect( add_query_arg( array_merge( array( 'post_type' => 'brra_event', 'page' => 'brra-attendance', 'event' => $event_id ), $args ), admin_url( 'edit.php' ) ) );
+	wp_safe_redirect( brra_attendance_admin_url( array_merge( array( 'event' => $event_id ), $args ) ) );
 	exit;
 }
 
@@ -662,6 +692,93 @@ document.querySelectorAll('.qr').forEach(function (el) {
 </body></html>
 		<?php
 		exit;
+	}
+);
+
+// ---------------------------------------------------------------- 100 Club draw on the night.
+
+/**
+ * 100 Club numbers and who holds them, e.g. array( 27 => 'Kaan Hayes' ).
+ */
+function brra_100club_holders() {
+	$h = get_option( 'brra_100club_holders', array() );
+	return is_array( $h ) ? $h : array();
+}
+
+/**
+ * The 100 Club box on the Attendance screen: Norman enters 1st to 4th on the night.
+ *
+ * @param int $event_id Event ID.
+ */
+function brra_100club_box( $event_id ) {
+	$d       = get_post_meta( $event_id, '_brra_100club', true );
+	$places  = is_array( $d ) && ! empty( $d['places'] ) ? $d['places'] : array();
+	$prizes  = get_option( 'brra_100club_prizes', array( '', '', '', '' ) );
+	$holders = brra_100club_holders();
+	echo '<h2 id="club100">100 Club draw</h2><p>Enter the numbers drawn tonight. The holder fills in from the list below, prizes go on the Treasurer\'s "to pay" list, and the results appear in the Fundraising item at the next committee meeting.</p>';
+	if ( isset( $_GET['club'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
+		echo '<div class="notice notice-success inline"><p>100 Club saved.</p></div>';
+	}
+	echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '"><input type="hidden" name="action" value="brra_100club"><input type="hidden" name="event" value="' . esc_attr( $event_id ) . '">';
+	wp_nonce_field( 'brra_100club' );
+	echo '<table class="widefat" style="max-width:620px"><thead><tr><th>Place</th><th>Number</th><th>Holder</th><th>Prize (£)</th></tr></thead><tbody>';
+	foreach ( array( '1st', '2nd', '3rd', '4th' ) as $i => $label ) {
+		$num   = isset( $places[ $i ]['num'] ) ? $places[ $i ]['num'] : '';
+		$prize = isset( $places[ $i ]['prize'] ) ? $places[ $i ]['prize'] : ( isset( $prizes[ $i ] ) ? $prizes[ $i ] : '' );
+		$hold  = isset( $places[ $i ]['holder'] ) ? $places[ $i ]['holder'] : '';
+		echo '<tr><td><strong>' . esc_html( $label ) . '</strong></td><td><input type="number" min="1" max="999" name="num[' . (int) $i . ']" value="' . esc_attr( $num ) . '" style="width:80px" class="brra-club-num"></td><td class="brra-club-holder">' . esc_html( $num ? ( $hold ? $hold : 'Unsold' ) : '' ) . '</td><td><input type="number" min="0" step="0.01" name="prize[' . (int) $i . ']" value="' . esc_attr( $prize ) . '" style="width:90px"></td></tr>';
+	}
+	echo '</tbody></table>';
+	echo '<details style="margin:10px 0;max-width:620px"><summary>Number holders (' . count( $holders ) . ')</summary><p>One per line: the number, then the name. For example <code>27 Kaan Hayes</code>.</p><textarea name="holders" rows="8" style="width:100%">';
+	foreach ( $holders as $n => $name ) {
+		echo esc_textarea( $n . ' ' . $name ) . "\n";
+	}
+	echo '</textarea></details><p><button class="button button-primary">Save draw</button></p></form>';
+	echo '<script>(function(){var h=' . wp_json_encode( (object) $holders ) . ';document.querySelectorAll(".brra-club-num").forEach(function(i){i.addEventListener("input",function(){var c=i.closest("tr").querySelector(".brra-club-holder");c.textContent=i.value?(h[i.value]||"Unsold"):"";});});})();</script>';
+}
+
+add_action(
+	'admin_post_brra_100club',
+	function () {
+		brra_attendance_guard( 'brra_100club' );
+		// phpcs:disable WordPress.Security.NonceVerification -- checked above.
+		$event_id = isset( $_POST['event'] ) ? absint( $_POST['event'] ) : 0;
+		if ( isset( $_POST['holders'] ) ) {
+			$holders = array();
+			foreach ( preg_split( '/\r?\n/', sanitize_textarea_field( wp_unslash( $_POST['holders'] ) ) ) as $line ) {
+				if ( preg_match( '/^\s*(\d+)\s+(.+?)\s*$/', $line, $m ) ) {
+					$holders[ (int) $m[1] ] = $m[2];
+				}
+			}
+			ksort( $holders );
+			update_option( 'brra_100club_holders', $holders, false );
+		}
+		$holders = brra_100club_holders();
+		$old     = get_post_meta( $event_id, '_brra_100club', true );
+		$places  = array();
+		$prizes  = array();
+		for ( $i = 0; $i < 4; $i++ ) {
+			$num      = isset( $_POST['num'][ $i ] ) ? absint( $_POST['num'][ $i ] ) : 0;
+			$prize    = isset( $_POST['prize'][ $i ] ) ? sanitize_text_field( wp_unslash( $_POST['prize'][ $i ] ) ) : '';
+			$prizes[] = $prize;
+			if ( ! $num ) {
+				continue;
+			}
+			$places[ $i ] = array(
+				'num'    => $num,
+				'holder' => isset( $holders[ $num ] ) ? $holders[ $num ] : '',
+				'prize'  => $prize,
+				'paid'   => is_array( $old ) && isset( $old['places'][ $i ]['num'] ) && (int) $old['places'][ $i ]['num'] === $num ? (int) ! empty( $old['places'][ $i ]['paid'] ) : 0,
+			);
+		}
+		// phpcs:enable WordPress.Security.NonceVerification
+		update_option( 'brra_100club_prizes', $prizes, false );
+		if ( $places ) {
+			update_post_meta( $event_id, '_brra_100club', array( 'places' => $places, 'by' => get_current_user_id(), 'at' => current_time( 'mysql' ) ) );
+		} else {
+			delete_post_meta( $event_id, '_brra_100club' );
+		}
+		brra_attendance_back( $event_id, array( 'club' => 1 ) );
 	}
 );
 

@@ -136,6 +136,9 @@ $brra_pages['contact']   = brra_build_page(
 	"<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">Where to find us</h2>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p><strong>St Mary's Social Club, Pine Street, Radcliffe, M26 2WQ</strong></p>\n<!-- /wp:paragraph -->\n\n<!-- wp:shortcode -->\n[brra_venue]\n<!-- /wp:shortcode -->\n\n<!-- wp:shortcode -->\n[brra_map]\n<!-- /wp:shortcode -->\n\n<!-- wp:heading {\"style\":{\"spacing\":{\"margin\":{\"top\":\"48px\"}}}} -->\n<h2 class=\"wp-block-heading\" style=\"margin-top:48px\">Get in touch</h2>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Questions about membership, becoming a referee or anything else? Send us a message and one of the committee will reply, usually within 72 hours. You can also email <a href=\"mailto:mail@buryrefs.org.uk\">mail@buryrefs.org.uk</a>.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:shortcode -->\n[brra_contact]\n<!-- /wp:shortcode -->\n\n<!-- wp:paragraph -->\n<p>We're also on <a href=\"https://www.instagram.com/buryreferees/\">Instagram</a>, <a href=\"https://www.facebook.com/profile.php?id=61565202158021\">Facebook</a> and <a href=\"https://twitter.com/BuryReferees\">X</a>.</p>\n<!-- /wp:paragraph -->"
 );
 $brra_pages['check-in'] = brra_build_page( 'check-in', 'Check in', "<!-- wp:shortcode -->\n[brra_checkin]\n<!-- /wp:shortcode -->" );
+// Committee area: private to committee members (see brra-site committee.php). Not in the menus;
+// committee members get a gold Committee button in the header instead of Join now.
+$brra_pages['committee'] = brra_build_page( 'committee', 'Committee area', "<!-- wp:group {\"align\":\"wide\",\"style\":{\"spacing\":{\"padding\":{\"top\":\"28px\",\"bottom\":\"28px\"}}}} -->\n<div class=\"wp-block-group alignwide\" style=\"padding-top:28px;padding-bottom:28px\"><!-- wp:shortcode -->\n[brra_committee_area]\n<!-- /wp:shortcode --></div>\n<!-- /wp:group -->", 'page-full' );
 $brra_pages['privacy-notice'] = brra_build_page( 'privacy-notice', 'Privacy notice' );
 update_option( 'wp_page_for_privacy_policy', $brra_pages['privacy-notice'] );
 
@@ -515,6 +518,11 @@ foreach ( $brra_wix as $brra_n ) {
 	}
 }
 update_option( 'posts_per_page', 9 );
+
+// ---------------------------------------------------------------- Committee area example content (test site only).
+if ( defined( 'BRRA_DEMO' ) && BRRA_DEMO ) {
+	require __DIR__ . '/committee-demo.php';
+}
 
 flush_rewrite_rules();
 brra_build_log( 'Site built.', 'success' );
