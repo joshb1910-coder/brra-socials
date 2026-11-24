@@ -20,6 +20,7 @@ define( 'BRRA_SITE_VERSION', '0.5.0' );
 require_once __DIR__ . '/includes/events.php';
 require_once __DIR__ . '/includes/people.php';
 require_once __DIR__ . '/includes/membership.php';
+require_once __DIR__ . '/includes/membership-season.php';
 require_once __DIR__ . '/includes/welcome-email.php';
 require_once __DIR__ . '/includes/contact.php';
 require_once __DIR__ . '/includes/attendance.php';

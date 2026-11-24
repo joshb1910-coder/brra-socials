@@ -122,7 +122,7 @@ add_filter(
 		if ( ! brra_is_season_level( $level ) ) {
 			return $enddate;
 		}
-		$season = brra_current_season();
+		$season = brra_sales_season();
 		return $season[1] . '-08-31 23:59:59';
 	},
 	10,
@@ -136,7 +136,7 @@ add_filter(
 		if ( ! brra_is_season_level( $level ) ) {
 			return $text;
 		}
-		$season = brra_current_season();
+		$season = brra_sales_season();
 		$full   = isset( $level->brra_full_price ) ? $level->brra_full_price : $level->initial_payment;
 		return sprintf( 'The price for the %d/%02d season is <strong>%s</strong>.', $season[0], $season[1] % 100, pmpro_formatPrice( $full ) );
 	},
@@ -149,7 +149,7 @@ add_filter(
 		if ( ! brra_is_season_level( $level ) ) {
 			return $text;
 		}
-		$season = brra_current_season();
+		$season = brra_sales_season();
 		return sprintf( 'Membership runs until 31 August %d. Renewals are due on 1 June.', $season[1] );
 	},
 	10,
@@ -283,7 +283,7 @@ function brra_membership_admin_page() {
 					<th scope="row"><label for="whatsapp_url">WhatsApp invite link</label></th>
 					<td>
 						<input type="url" id="whatsapp_url" name="whatsapp_url" class="regular-text" value="<?php echo esc_attr( get_option( 'brra_whatsapp_url', '' ) ); ?>" placeholder="https://chat.whatsapp.com/...">
-						<p class="description">The invite link to the members' WhatsApp community. It goes in the welcome email new members get. Leave blank and the email says the Membership Secretary will add them. <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=brra_welcome_preview' ), 'brra_welcome_preview' ) ); ?>" target="_blank">Preview the welcome email</a></p>
+						<p class="description">The invite link to the members' WhatsApp community. It goes in the welcome email new members get. Leave blank and the email says the Membership Secretary will add them. <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=brra_welcome_preview' ), 'brra_welcome_preview' ) ); ?>" target="_blank">Preview the welcome email</a> · <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=brra_welcome_preview&back=1' ), 'brra_welcome_preview' ) ); ?>" target="_blank">Preview the welcome-back email</a></p>
 					</td>
 				</tr>
 				<tr>
@@ -296,6 +296,8 @@ function brra_membership_admin_page() {
 			</table>
 			<?php submit_button(); ?>
 		</form>
+
+		<?php brra_season_admin_box(); ?>
 
 		<h2>Add current members</h2>
 		<p>For people who have already paid for this season (for example on the old website, by bank transfer or in cash). Each gets an account and a membership until 31 August, without being charged and without an email. They can log in later with "Lost your password?" using the same email.</p>

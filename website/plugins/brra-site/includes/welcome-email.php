@@ -36,6 +36,23 @@ function brra_welcome_next_event() {
 }
 
 /**
+ * Is this person coming back (renewing, or rejoining after a gap)?
+ * True if they're on the past members' list or have held an earlier membership on this site.
+ *
+ * @param WP_User|null $user User.
+ */
+function brra_is_renewal( $user ) {
+	global $wpdb;
+	if ( ! $user ) {
+		return false;
+	}
+	if ( in_array( strtolower( $user->user_email ), brra_past_member_emails(), true ) ) {
+		return true;
+	}
+	return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->pmpro_memberships_users} WHERE user_id = %d", $user->ID ) ) > 1; // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+}
+
+/**
  * One numbered step box.
  *
  * @param int    $n     Number.
@@ -66,7 +83,8 @@ function brra_welcome_button( $url, $label, $bg = '#050F1C' ) {
  * @param WP_User|null $user The new member.
  * @param array        $data PMPro email data (order_id, order_total, order_date, membership_level_name).
  */
-function brra_welcome_email_html( $user, $data = array() ) {
+function brra_welcome_email_html( $user, $data = array(), $back = null ) {
+	$back  = null === $back ? brra_is_renewal( $user ) : $back;
 	$p     = 'margin:0 0 12px;font-size:16px;line-height:1.55';
 	$small = 'margin:0 0 14px;font-size:15px;line-height:1.5;color:#3E4C60';
 	$first = $user ? trim( $user->first_name ) : '';
@@ -88,20 +106,28 @@ function brra_welcome_email_html( $user, $data = array() ) {
 	$out .= '<tr><td style="background:#050F1C;padding:22px 28px;border-bottom:4px solid #D4AF37"><img src="' . esc_url( BRRA_SITE_URL . 'assets/email-header.png' ) . '" width="300" alt="Bury &amp; Rochdale Referees&#39; Association" style="display:block;width:300px;max-width:100%;height:auto;border:0"></td></tr>';
 
 	// Welcome.
-	$out .= '<tr><td style="padding:30px 28px 8px"><p style="margin:0 0 6px;font-size:12px;letter-spacing:2px;font-weight:bold;color:#9A7B1C">WELCOME TO THE RA</p>';
-	$out .= '<h1 style="margin:0 0 14px;font-size:28px;line-height:1.2;color:#050F1C">' . ( $first ? 'You&#39;re in, ' . esc_html( $first ) . '!' : 'You&#39;re in!' ) . '</h1>';
-	$out .= '<p style="' . $p . '">Thanks for joining Bury &amp; Rochdale Referees&#39; Association. We&#39;ve been supporting, training and developing match officials since 1898, and we&#39;re really glad to have you with us this season.</p>';
-	$out .= '<p style="margin:0;font-size:16px;line-height:1.55">Here are three things to do now so you get the most out of your membership.</p></td></tr>';
+	$season = function_exists( 'brra_sales_season' ) ? brra_season_text( brra_sales_season() ) : '';
+	if ( $back ) {
+		$out .= '<tr><td style="padding:30px 28px 8px"><p style="margin:0 0 6px;font-size:12px;letter-spacing:2px;font-weight:bold;color:#9A7B1C">WELCOME BACK</p>';
+		$out .= '<h1 style="margin:0 0 14px;font-size:28px;line-height:1.2;color:#050F1C">' . ( $first ? 'Great to have you back, ' . esc_html( $first ) . '!' : 'Great to have you back!' ) . '</h1>';
+		$out .= '<p style="' . $p . '">Thanks for renewing with Bury &amp; Rochdale Referees&#39; Association. We&#39;re really glad to see you join us for another season' . ( $season ? ' in ' . esc_html( $season ) : '' ) . '.</p>';
+		$out .= '<p style="margin:0;font-size:16px;line-height:1.55">Here&#39;s a quick reminder of how to stay involved this season.</p></td></tr>';
+	} else {
+		$out .= '<tr><td style="padding:30px 28px 8px"><p style="margin:0 0 6px;font-size:12px;letter-spacing:2px;font-weight:bold;color:#9A7B1C">WELCOME TO THE RA</p>';
+		$out .= '<h1 style="margin:0 0 14px;font-size:28px;line-height:1.2;color:#050F1C">' . ( $first ? 'You&#39;re in, ' . esc_html( $first ) . '!' : 'You&#39;re in!' ) . '</h1>';
+		$out .= '<p style="' . $p . '">Thanks for joining Bury &amp; Rochdale Referees&#39; Association. We&#39;ve been supporting, training and developing match officials since 1898, and we&#39;re really glad to have you with us this season.</p>';
+		$out .= '<p style="margin:0;font-size:16px;line-height:1.55">Here are three things to do now so you get the most out of your membership.</p></td></tr>';
+	}
 
 	// 1. WhatsApp.
 	$wa   = get_option( 'brra_whatsapp_url', '' );
-	$body = '<p style="' . $small . '">This is where it all happens: post games you need an official for (or games you can cover), ask questions after a tricky match, network with referees at every level and keep up with RA news.</p>';
+	$body = '<p style="' . $small . '">' . ( $back ? 'Not in it yet, or left over the summer? ' : '' ) . 'This is where it all happens: post games you need an official for (or games you can cover), ask questions after a tricky match, network with referees at every level and keep up with RA news.</p>';
 	if ( $wa ) {
 		$body .= brra_welcome_button( $wa, 'Join on WhatsApp', '#25D366' );
 	} else {
 		$body .= '<p style="margin:0;font-size:15px;line-height:1.5;color:#0B1626">Our Membership Secretary will add you in the next few days.</p>';
 	}
-	$out .= brra_welcome_step( 1, 'Join the members\' WhatsApp community', $body );
+	$out .= brra_welcome_step( 1, $back ? 'Stay in the members\' WhatsApp community' : 'Join the members\' WhatsApp community', $body );
 
 	// 2. Next session, picked from Events.
 	$ev   = brra_welcome_next_event();
@@ -129,7 +155,7 @@ function brra_welcome_email_html( $user, $data = array() ) {
 
 	// What membership includes.
 	$tick = '<td width="22" valign="top" style="color:#D4AF37;font-weight:bold;padding:4px 0">&#10003;</td>';
-	$out .= '<tr><td style="padding:26px 28px 0"><p style="margin:0 0 8px;font-size:13px;letter-spacing:2px;font-weight:bold;color:#050F1C;border-bottom:1px solid #D4AF37;padding-bottom:5px">YOUR MEMBERSHIP INCLUDES</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:15px;line-height:1.5">';
+	$out .= '<tr><td style="padding:26px 28px 0"><p style="margin:0 0 8px;font-size:13px;letter-spacing:2px;font-weight:bold;color:#050F1C;border-bottom:1px solid #D4AF37;padding-bottom:5px">' . ( $back ? 'THIS SEASON YOU GET' : 'YOUR MEMBERSHIP INCLUDES' ) . '</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:15px;line-height:1.5">';
 	foreach ( array( 'Monthly Development Sessions with guest speakers', 'Mentoring and support from experienced officials, whatever level you\'re at', 'The members\' WhatsApp community', 'Socials, the 100 Club and your vote at the AGM' ) as $li ) {
 		$out .= '<tr>' . $tick . '<td style="padding:4px 0">' . esc_html( $li ) . '</td></tr>';
 	}
@@ -152,12 +178,12 @@ function brra_welcome_email_html( $user, $data = array() ) {
 	// Sign-off from the Membership Secretary.
 	$ms   = function_exists( 'brra_committee_holder' ) ? brra_committee_holder( 'membership' ) : 0;
 	$out .= '<tr><td style="padding:24px 28px 28px"><p style="' . $p . '">If you need anything at all, from help after a tricky game to advice on your next promotion, just reply to this email.</p>';
-	$out .= '<p style="margin:0;font-size:16px;line-height:1.55">See you at the next session,</p>';
+	$out .= '<p style="margin:0;font-size:16px;line-height:1.55">' . ( $back ? 'See you at the next session, and thanks for sticking with us,' : 'See you at the next session,' ) . '</p>';
 	$out .= '<p style="margin:6px 0 0;font-size:16px;line-height:1.4"><strong>' . esc_html( $ms ? get_userdata( $ms )->display_name : 'The committee' ) . '</strong><br><span style="color:#3E4C60;font-size:14px">' . ( $ms ? 'Membership Secretary, ' : '' ) . 'Bury &amp; Rochdale Referees&#39; Association</span></p></td></tr>';
 
 	// Footer.
 	$out .= '<tr><td style="background:#050F1C;padding:18px 28px;border-top:4px solid #D4AF37;font-size:12px;line-height:1.6;color:#C9D2DD"><strong style="color:#ffffff">Bury &amp; Rochdale Referees&#39; Association</strong><br>Supporting, Training &amp; Developing Match Officials since 1898<br>'
-		. '<a href="mailto:mail@buryrefs.org.uk" style="color:#D4AF37">mail@buryrefs.org.uk</a> &nbsp;|&nbsp; <a href="' . esc_url( home_url( '/' ) ) . '" style="color:#D4AF37">www.buryrefs.org.uk</a> &nbsp;|&nbsp; @buryreferees<br><span style="color:#8C99AB">You&#39;re getting this because you&#39;ve just joined the RA online.</span></td></tr>';
+		. '<a href="mailto:mail@buryrefs.org.uk" style="color:#D4AF37">mail@buryrefs.org.uk</a> &nbsp;|&nbsp; <a href="' . esc_url( home_url( '/' ) ) . '" style="color:#D4AF37">www.buryrefs.org.uk</a> &nbsp;|&nbsp; @buryreferees<br><span style="color:#8C99AB">You&#39;re getting this because you&#39;ve just ' . ( $back ? 'renewed your membership' : 'joined the RA' ) . ' online.</span></td></tr>';
 	return $out . '</table></td></tr></table>';
 }
 
@@ -168,7 +194,7 @@ add_filter(
 		if ( is_object( $email ) && brra_is_welcome_template( $email->template ) ) {
 			$user        = get_user_by( 'email', $email->email );
 			$email->body = brra_welcome_email_html( $user ? $user : null, is_array( $email->data ) ? $email->data : array() );
-			$email->subject = 'Welcome to Bury & Rochdale RA';
+			$email->subject = brra_is_renewal( $user ? $user : null ) ? 'Thanks for renewing with Bury & Rochdale RA' : 'Welcome to Bury & Rochdale RA';
 		}
 		return $email;
 	}
@@ -200,7 +226,7 @@ add_action(
 			'order_total' => '£15.00',
 			'order_date'  => wp_date( 'j F Y' ),
 		);
-		$html = brra_welcome_email_html( $user, $data );
+		$html = brra_welcome_email_html( $user, $data, ! empty( $_GET['back'] ) ); // phpcs:ignore WordPress.Security.NonceVerification
 		echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Welcome email preview</title></head><body style="margin:0">' . ( function_exists( 'pmpro_kses' ) ? pmpro_kses( $html ) : wp_kses_post( $html ) ) . '</body></html>'; // phpcs:ignore WordPress.Security.EscapeOutput
 		exit;
 	}

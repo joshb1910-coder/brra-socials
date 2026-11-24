@@ -1,7 +1,7 @@
 <!-- wp:group {"align":"full","backgroundColor":"navy","textColor":"white","className":"brra-on-dark","layout":{"type":"constrained"}} -->
 <div class="wp-block-group alignfull brra-on-dark has-white-color has-navy-background-color has-text-color has-background"><!-- wp:group {"align":"wide","style":{"spacing":{"padding":{"top":"76px","bottom":"130px"},"blockGap":"18px"}},"layout":{"type":"default"}} -->
 <div class="wp-block-group alignwide" style="padding-top:76px;padding-bottom:130px"><!-- wp:paragraph {"className":"is-style-eyebrow"} -->
-<p class="is-style-eyebrow">Membership {{season}}</p>
+<p class="is-style-eyebrow">Membership [brra_season]</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:heading {"level":1,"style":{"typography":{"fontSize":"clamp(34px, 4.8vw, 58px)"}}} -->
@@ -9,8 +9,12 @@
 <!-- /wp:heading -->
 
 <!-- wp:paragraph {"textColor":"cloud","fontSize":"large"} -->
-<p class="has-cloud-color has-text-color has-large-font-size" style="max-width:620px">£20 for the season. If you've never been a member before, you'll pay £15. There's no code to enter, it's applied automatically.</p>
-<!-- /wp:paragraph --></div>
+<p class="has-cloud-color has-text-color has-large-font-size" style="max-width:620px">[brra_price] for the season. If you've never been a member before, you'll pay [brra_price type="new"]. There's no code to enter, it's applied automatically.</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:shortcode -->
+[brra_membership_notice]
+<!-- /wp:shortcode --></div>
 <!-- /wp:group --></div>
 <!-- /wp:group -->
 
@@ -23,11 +27,11 @@
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph {"style":{"typography":{"fontSize":"20px"}}} -->
-<p style="font-size:20px"><strong style="font-family:var(--wp--preset--font-family--heading);font-size:52px;font-weight:900;line-height:1">£20</strong> per season</p>
+<p style="font-size:20px"><strong style="font-family:var(--wp--preset--font-family--heading);font-size:52px;font-weight:900;line-height:1">[brra_price]</strong> per season</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph {"textColor":"cloud"} -->
-<p class="has-cloud-color has-text-color">First-time members: <strong>£15</strong> (25% off, automatic)</p>
+<p class="has-cloud-color has-text-color">First-time members: <strong>[brra_price type="new"]</strong> ([brra_discount]% off, automatic)</p>
 <!-- /wp:paragraph --></div>
 <!-- /wp:group -->
 

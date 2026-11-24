@@ -380,3 +380,9 @@ a.brra-card-link:hover .brra-card-title { text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) {
 	@view-transition { navigation: none; }
 }
+
+/* Membership closed before the AGM, and the Renew box in My Account. */
+.brra-notice.brra-closed-notice { background: #FFF6DB; color: #5C4A0E; max-width: 620px; }
+.brra-closed, .brra-renew-box { background: #FFF; border: 1px solid #DDE2EA; border-left: 4px solid var(--wp--preset--color--gold); border-radius: 8px; padding: 22px 24px; margin: 0 0 28px; }
+.brra-closed h2, .brra-renew-box h2 { margin: 0 0 8px; font-size: 24px; }
+.brra-closed p:last-child, .brra-renew-box p:last-child { margin-bottom: 0; }
