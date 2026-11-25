@@ -231,3 +231,26 @@ add_action(
 		exit;
 	}
 );
+
+// The committee's copy of each online join or renewal goes to mail@ (not just the site admin),
+// with a subject that says straight away whether it's a new member or a renewal.
+add_filter(
+	'pmpro_email_filter',
+	function ( $email ) {
+		if ( ! is_object( $email ) || 0 !== strpos( (string) $email->template, 'checkout_' ) || '_admin' !== substr( $email->template, -6 ) ) {
+			return $email;
+		}
+		$to = get_option( 'brra_signup_notify', 'mail@buryrefs.org.uk' );
+		if ( is_email( $to ) ) {
+			$email->email = $to;
+		}
+		$login  = is_array( $email->data ) && ! empty( $email->data['user_login'] ) ? $email->data['user_login'] : '';
+		$member = $login ? get_user_by( 'login', $login ) : null;
+		if ( $member ) {
+			$level          = is_array( $email->data ) && ! empty( $email->data['membership_level_name'] ) ? wp_strip_all_tags( $email->data['membership_level_name'] ) : 'membership';
+			$email->subject = ( brra_is_renewal( $member ) ? 'Renewal: ' : 'New member: ' ) . $member->display_name . ' (' . $level . ')';
+		}
+		return $email;
+	},
+	20
+);
