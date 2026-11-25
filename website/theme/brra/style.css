@@ -29,6 +29,8 @@ Text Domain: brra
 /* Header */
 .brra-header {
 	border-bottom: 3px solid var(--wp--preset--color--gold);
+	position: relative;
+	z-index: 50; /* keeps the More dropdown above the page */
 }
 .brra-brand {
 	display: flex;

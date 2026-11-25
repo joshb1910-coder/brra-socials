@@ -60,8 +60,8 @@ $brra_join = get_page_by_path( 'membership' );
 <?php echo $brra_links; // phpcs:ignore WordPress.Security.EscapeOutput ?>
 <!-- /wp:navigation -->
 <!-- wp:buttons -->
-<div class="wp-block-buttons"><!-- wp:button -->
-<div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="<?php echo esc_url( $brra_join ? get_permalink( $brra_join ) . '#join' : home_url( '/membership/#join' ) ); ?>">Join now</a></div>
+<div class="wp-block-buttons"><!-- wp:button {"className":"brra-join-btn"} -->
+<div class="wp-block-button brra-join-btn"><a class="wp-block-button__link wp-element-button" href="<?php echo esc_url( $brra_join ? get_permalink( $brra_join ) . '#join' : home_url( '/membership/#join' ) ); ?>">Join now</a></div>
 <!-- /wp:button --></div>
 <!-- /wp:buttons -->
 </div>

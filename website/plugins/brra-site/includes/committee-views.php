@@ -181,14 +181,6 @@ function brra_c_nav_key( $view ) {
 function brra_c_nav_badges() {
 	$uid = get_current_user_id();
 	$b   = array();
-	$b['actions'] = count(
-		array_filter(
-			brra_all_actions( true ),
-			function ( $a ) use ( $uid ) {
-				return (int) $a['owner'] === $uid;
-			}
-		)
-	);
 	$next = brra_next_meeting();
 	if ( $next ) {
 		$n = 0;

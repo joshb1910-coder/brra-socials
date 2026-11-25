@@ -234,7 +234,7 @@ function brra_committee_holder( $role ) {
 add_filter(
 	'render_block',
 	function ( $html, $block ) {
-		if ( 'core/button' !== $block['blockName'] || false === strpos( $html, 'Join now' ) || ! brra_is_committee() ) {
+		if ( 'core/button' !== $block['blockName'] || false === strpos( $html, 'brra-join-btn' ) || ! brra_is_committee() ) {
 			return $html;
 		}
 		return '<div class="wp-block-button brra-committee-btn"><a class="wp-block-button__link wp-element-button" href="' . esc_url( brra_c_url() ) . '">Committee</a></div>';
