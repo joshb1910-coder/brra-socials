@@ -181,16 +181,6 @@ function brra_c_nav_key( $view ) {
 function brra_c_nav_badges() {
 	$uid = get_current_user_id();
 	$b   = array();
-	$next = brra_next_meeting();
-	if ( $next ) {
-		$n = 0;
-		foreach ( $next['items'] as $it ) {
-			if ( 'report' === $it['kind'] && (int) $it['lead'] === $uid && empty( $next['reports'][ $it['report'] ]['submitted'] ) ) {
-				++$n;
-			}
-		}
-		$b['reports'] = $n;
-	}
 	if ( function_exists( 'brra_expenses_in' ) ) {
 		$n = 0;
 		foreach ( brra_expenses_in( brra_current_season()[0] ) as $e ) {
@@ -364,12 +354,14 @@ function brra_c_notice() {
 		'nofile'    => 'Choose a file and a folder first.',
 		'baddate'   => 'Please pick a date.',
 		'expense'   => 'Payment saved.',
+		'declined'  => 'Claim declined. We\'ve emailed the reason.',
+		'needreason' => 'Please give a reason for declining.',
 		'reminded'  => 'Reminder sent.',
 		'badexpense' => 'Please fill in the date, the amount and what it was for.',
 		'badreceipt' => 'That receipt couldn\'t be added. Use a photo (JPG, PNG, HEIC) or a PDF.',
 	);
 	if ( isset( $msgs[ $done ] ) ) {
-		$bad = in_array( $done, array( 'badfile', 'nofile', 'baddate', 'badexpense', 'badreceipt' ), true );
+		$bad = in_array( $done, array( 'badfile', 'nofile', 'baddate', 'badexpense', 'badreceipt', 'needreason' ), true );
 		echo '<p class="bc-notice' . ( $bad ? ' is-bad' : '' ) . '" role="status">' . brra_e( $msgs[ $done ] ) . '</p>';
 	}
 }

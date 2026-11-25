@@ -353,6 +353,7 @@ foreach (
 		array( 'claim', 'Martin Flynn', '11-18', 18.50, 'Speaker petrol, Peter Wright', 'speakers', true, 'pending' ),
 		array( 'claim', 'Josh Brammer', '11-20', 28.30, 'Raffle prizes', 'christmas', true, 'pending' ),
 		array( 'card', 'Norman Rowlands', '09-04', 84.40, 'Chip butties, September MDS and AGM leftovers', 'refreshments', true, 'checked' ),
+		array( 'claim', 'Kaan Hayes', '11-06', 22.00, 'Taxi home after November MDS', 'other', true, 'declined' ),
 	) as $brra_k => $brra_e
 ) {
 	$brra_who = $brra_c( $brra_e[1] );
@@ -369,8 +370,12 @@ foreach (
 		'by'         => $brra_who,
 		'at'         => $brra_season . '-' . $brra_e[2] . ' 21:00:00',
 		'status'     => $brra_e[7],
-		'note'       => '',
+		'note'       => 'declined' === $brra_e[7] ? 'Travel to MDS nights isn\'t covered. Sorry Kaan.' : '',
 		'paid_at'    => 'paid' === $brra_e[7] ? gmdate( 'Y-m-d H:i:s', strtotime( $brra_season . '-' . $brra_e[2] . ' +3 days' ) ) : '',
+		'approved_by' => in_array( $brra_e[7], array( 'approved', 'paid' ), true ) ? $brra_c( 'Norman Rowlands' ) : 0,
+		'approved_at' => in_array( $brra_e[7], array( 'approved', 'paid' ), true ) ? gmdate( 'Y-m-d H:i:s', strtotime( $brra_season . '-' . $brra_e[2] . ' +2 days' ) ) : '',
+		'declined_by' => 'declined' === $brra_e[7] ? $brra_c( 'Norman Rowlands' ) : 0,
+		'declined_at' => 'declined' === $brra_e[7] ? gmdate( 'Y-m-d H:i:s', strtotime( $brra_season . '-' . $brra_e[2] . ' +3 days' ) ) : '',
 		'checked_at' => 'checked' === $brra_e[7] ? gmdate( 'Y-m-d H:i:s', strtotime( $brra_season . '-' . $brra_e[2] . ' +20 days' ) ) : '',
 	);
 }

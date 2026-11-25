@@ -296,3 +296,12 @@ td.bc-empty { border-radius: 0; }
 	.bc-tabs a { white-space: nowrap; padding: 8px 10px; }
 	.bc-head .bc-row { width: 100%; }
 }
+
+/* Expenses: add form behind a button, tabs. */
+.bc-addpay.bc-addpay-solo { max-width: 780px; margin-bottom: 18px; }
+.bc-pay-go { gap: 8px; flex-wrap: nowrap; }
+.bc-pay-go .bc-btn { flex: 1 1 auto; justify-content: center; }
+.bc-addpay .bc-btn.bc-on-dark, .bc-addpay .bc-btn.bc-on-dark:hover { color: #fff !important; border: 1px solid rgba(255,255,255,.45) !important; background: transparent !important; }
+.bc-query > summary.bc-link { font-size: 13px; color: var(--slate); text-decoration: underline; cursor: pointer; padding: 5px 2px; }
+.bc-exp-info { font-size: 13px; margin-top: 4px; }
+.bc-exp tfoot td { border-top: 2px solid var(--line); padding-top: 10px; }

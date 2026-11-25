@@ -157,7 +157,7 @@ function brra_expense_outstanding( $e ) {
 	if ( 'card' === $e['type'] ) {
 		return empty( $e['receipt'] ) || 'checked' !== $e['status'];
 	}
-	return 'paid' !== $e['status'];
+	return ! in_array( $e['status'], array( 'paid', 'declined' ), true );
 }
 
 /**
@@ -177,6 +177,7 @@ function brra_expense_status( $e ) {
 		'queried'  => array( 'Queried', 'r' ),
 		'approved' => array( 'Approved, to pay back', 'g' ),
 		'paid'     => array( 'Paid back' . ( ! empty( $e['paid_at'] ) ? ' ' . mysql2date( 'j M', $e['paid_at'] ) : '' ), 'g' ),
+		'declined' => array( 'Declined', 'r' ),
 	);
 	return isset( $l[ $e['status'] ] ) ? $l[ $e['status'] ] : array( $e['status'], '' );
 }
@@ -248,7 +249,7 @@ function brra_expense_from_request() {
  */
 function brra_expense_back( $notice = 'saved' ) {
 	$args = array();
-	foreach ( array( 'season', 'who', 'area', 'show' ) as $k ) {
+	foreach ( array( 'season', 'who', 'area', 'tab' ) as $k ) {
 		if ( '' !== brra_c_in( 'f_' . $k ) ) {
 			$args[ $k ] = brra_c_in( 'f_' . $k );
 		}
@@ -334,14 +335,34 @@ function brra_c_do_expense_set() {
 	if ( $mine && in_array( $set, array( 'approve', 'paid' ), true ) ) {
 		brra_c_die( 'Someone else needs to approve your own claim.' );
 	}
+	if ( $mine && 'decline' === $set ) {
+		brra_c_die( 'Someone else needs to decide on your own claim.' );
+	}
+	$notice = 'saved';
 	switch ( $set ) {
 		case 'approve':
 			$e['status']      = 'approved';
 			$e['approved_by'] = get_current_user_id();
+			$e['approved_at'] = current_time( 'mysql' );
+			brra_expense_mail( $e, 'Expense approved: ' . $e['what'], brra_c_name( get_current_user_id() ) . ' has approved your claim for ' . brra_expense_line( $e ) . ". It'll be paid back soon." );
 			break;
 		case 'paid':
 			$e['status']  = 'paid';
 			$e['paid_at'] = current_time( 'mysql' );
+			$e['paid_by'] = get_current_user_id();
+			brra_expense_mail( $e, 'Expense paid back: ' . $e['what'], 'Your claim for ' . brra_expense_line( $e ) . ' has been paid back.' );
+			break;
+		case 'decline':
+			$why = brra_c_in( 'note', '', true );
+			if ( 'claim' !== $e['type'] || '' === trim( $why ) ) {
+				brra_expense_back( 'needreason' );
+			}
+			$e['status']      = 'declined';
+			$e['note']        = $why;
+			$e['declined_by'] = get_current_user_id();
+			$e['declined_at'] = current_time( 'mysql' );
+			brra_expense_mail( $e, 'Expense declined: ' . $e['what'], brra_c_name( get_current_user_id() ) . ' has declined your claim for ' . brra_expense_line( $e ) . ".\n\nReason: " . $why );
+			$notice = 'declined';
 			break;
 		case 'check':
 			$e['status']     = 'checked' === $e['status'] ? 'unchecked' : 'checked';
@@ -350,15 +371,35 @@ function brra_c_do_expense_set() {
 		case 'query':
 			$e['status'] = 'queried';
 			$e['note']   = brra_c_in( 'note', '', true );
-			$who         = get_userdata( brra_expense_person( $e ) );
-			if ( $who ) {
-				wp_mail( $who->user_email, 'Question about your expense: ' . $e['what'], 'Hi ' . $who->first_name . ",\n\n" . brra_c_name( get_current_user_id() ) . ' has a question about ' . $e['what'] . ' (' . brra_money( $e['amount'] ) . ', ' . brra_c_date( $e['date'], 'j M Y' ) . "):\n\n" . $e['note'] . "\n\n" . brra_c_url( 'expenses' ) );
-			}
+			brra_expense_mail( $e, 'Question about your expense: ' . $e['what'], brra_c_name( get_current_user_id() ) . ' has a question about ' . brra_expense_line( $e ) . ":\n\n" . $e['note'] );
 			break;
 	}
 	$all[ $id ] = $e;
 	brra_expenses_save( $all );
-	brra_expense_back();
+	brra_expense_back( $notice );
+}
+
+/**
+ * "Speaker petrol (£18.50, 18 Nov 2026)".
+ *
+ * @param array $e Expense.
+ */
+function brra_expense_line( $e ) {
+	return $e['what'] . ' (' . brra_money( $e['amount'] ) . ', ' . brra_c_date( $e['date'], 'j M Y' ) . ')';
+}
+
+/**
+ * Email the person whose expense it is.
+ *
+ * @param array  $e       Expense.
+ * @param string $subject Subject.
+ * @param string $body    Message.
+ */
+function brra_expense_mail( $e, $subject, $body ) {
+	$who = get_userdata( brra_expense_person( $e ) );
+	if ( $who && $who->ID !== get_current_user_id() ) {
+		wp_mail( $who->user_email, $subject, 'Hi ' . ( $who->first_name ? $who->first_name : $who->display_name ) . ",\n\n" . $body . "\n\nSee your expenses: " . brra_c_url( 'expenses' ) . "\n\nBury & Rochdale RA" );
+	}
 }
 
 /**
@@ -454,6 +495,9 @@ function brra_c_do_expenses_csv() {
 	fwrite( $out, "\xEF\xBB\xBF" ); // phpcs:ignore WordPress.WP.AlternativeFunctions
 	fputcsv( $out, array( 'Date', 'Type', 'Who', 'Card', 'What', 'Budget area', 'Amount (£)', 'Status', 'Paid back / checked on', 'Receipt' ) );
 	foreach ( array_reverse( brra_expenses_in( $season ) ) as $e ) {
+		if ( 'declined' === $e['status'] ) {
+			continue;
+		}
 		$st   = brra_expense_status( $e );
 		$when = 'card' === $e['type'] ? ( 'checked' === $e['status'] && ! empty( $e['checked_at'] ) ? substr( $e['checked_at'], 0, 10 ) : '' ) : ( ! empty( $e['paid_at'] ) ? substr( $e['paid_at'], 0, 10 ) : '' );
 		fputcsv(
@@ -579,79 +623,63 @@ function brra_c_view_expenses() {
 	$all_see = brra_can_see_all_expenses();
 	$approve = brra_can_approve_expenses();
 	$season  = brra_c_season_in();
-	$who     = absint( brra_c_in( 'who' ) );
-	$area    = sanitize_key( brra_c_in( 'area' ) );
-	$show    = 'all' === brra_c_in( 'show' ) ? 'all' : 'open';
+	$who     = $all_see ? absint( brra_c_in( 'who' ) ) : 0;
+	$area    = $all_see ? sanitize_key( brra_c_in( 'area' ) ) : '';
+	$adding  = (bool) brra_c_in( 'add' ) && brra_committee_can_edit();
 	$areas   = brra_budget_areas( $season );
 	$cards   = brra_expense_cards();
 	$list    = array_filter( brra_expenses_in( $season ), 'brra_can_see_expense' );
+	if ( ! $all_see ) {
+		$list = array_filter(
+			$list,
+			function ( $e ) use ( $uid ) {
+				return brra_expense_person( $e ) === $uid || (int) $e['by'] === $uid;
+			}
+		);
+	}
 	$seasons = array();
 	foreach ( brra_expenses() as $e ) {
 		$seasons[] = brra_expense_season( $e );
 	}
 
-	$right = brra_c_season_picker( 'expenses', $season, $seasons );
+	// Which tab each payment sits in.
+	$group = function ( $e ) {
+		if ( 'declined' === $e['status'] ) {
+			return 'declined';
+		}
+		if ( 'card' === $e['type'] ) {
+			return brra_expense_outstanding( $e ) ? 'todo' : 'approved';
+		}
+		return in_array( $e['status'], array( 'approved', 'paid' ), true ) ? 'approved' : 'todo';
+	};
+	$tabs_n = array( 'todo' => 0, 'approved' => 0, 'declined' => 0 );
+	foreach ( $list as $e ) {
+		++$tabs_n[ $group( $e ) ];
+		if ( $all_see && 'claim' === $e['type'] && 'approved' === $e['status'] ) {
+			++$tabs_n['todo']; // Approved, but still to pay back.
+		}
+	}
+	$tab = brra_c_in( 'tab' );
+	$tab = isset( $tabs_n[ $tab ] ) ? $tab : 'todo';
+
+	$keep  = array( 'season' => $season, 'tab' => $tab );
+	$label = $all_see ? '+ Add a payment' : 'Claim expenses';
+	$right = brra_committee_can_edit() && ! $adding ? '<a class="bc-btn is-gold" href="' . esc_url( brra_c_url( 'expenses', array_merge( $keep, array( 'add' => 1 ) ) ) ) . '">' . brra_e( $label ) . '</a>' : '';
+	$right .= brra_c_season_picker( 'expenses', $season, $seasons, array( 'tab' => $tab ) );
 	if ( $all_see ) {
 		$right .= '<a class="bc-btn is-ghost bc-dl" href="' . esc_url( brra_c_action_url( 'expenses_csv', array( 'season' => $season ) ) ) . '">Download for the I&amp;E (Excel)</a>';
 		if ( class_exists( 'ZipArchive' ) ) {
 			$right .= '<a class="bc-btn is-ghost bc-dl" href="' . esc_url( brra_c_action_url( 'expenses_zip', array( 'season' => $season ) ) ) . '">Download receipts (zip)</a>';
 		}
 	}
-	brra_c_head( 'Finance', 'Expenses and card spend', $right, $all_see ? 'Claim back anything you paid for yourself, and log every business debit card payment with its receipt. The Treasurer approves claims and ticks card payments off against the bank statement.' : 'Claim back anything you paid for the RA yourself. Add the receipt, and the Treasurer will approve it and pay you back.' );
+	brra_c_head( 'Finance', 'Expenses and card spend', $right, $all_see ? 'Claims from the committee and every business debit card payment. The Treasurer or Chairman approves claims, pays them back and ticks card payments off against the bank statement.' : 'Paid for something for the RA yourself? Claim it back here with a photo of the receipt. Only you, the Treasurer, Chairman and Secretary can see your claims.' );
 
-	// Summary cards.
-	$sum = function ( $rows ) {
-		return array_sum( wp_list_pluck( $rows, 'amount' ) );
-	};
-	$by  = function ( $test ) use ( $list ) {
-		return array_filter( $list, $test );
-	};
-	if ( $all_see ) {
-		$to_approve = $by(
-			function ( $e ) {
-				return 'claim' === $e['type'] && 'pending' === $e['status'];
-			}
-		);
-		$to_pay     = $by(
-			function ( $e ) {
-				return 'claim' === $e['type'] && 'approved' === $e['status'];
-			}
-		);
-		$no_receipt = $by(
-			function ( $e ) {
-				return 'card' === $e['type'] && empty( $e['receipt'] );
-			}
-		);
-		$spent      = $by( 'brra_expense_counts' );
-		$names      = array_unique( array_map( 'brra_c_name', array_map( 'brra_expense_person', $to_pay ) ) );
-		$first_nr   = $no_receipt ? end( $no_receipt ) : null;
-		echo '<div class="bc-grid bc-g4">';
-		echo '<div class="bc-card"><div class="bc-muted">Claims to approve</div><div class="bc-big">' . count( $to_approve ) . '</div><div class="bc-muted">' . ( $to_approve ? brra_e( brra_money( $sum( $to_approve ) ) ) . ' in total' : 'Nothing waiting' ) . '</div></div>';
-		echo '<div class="bc-card"><div class="bc-muted">Approved, to pay back</div><div class="bc-big">' . count( $to_pay ) . '</div><div class="bc-muted">' . ( $to_pay ? brra_e( brra_money( $sum( $to_pay ) ) . ' to ' . implode( ', ', $names ) ) : 'All paid' ) . '</div></div>';
-		echo '<div class="bc-card' . ( $no_receipt ? ' is-alert' : '' ) . '"><div class="bc-muted">Card payments with no receipt</div><div class="bc-big">' . count( $no_receipt ) . '</div><div class="bc-muted">' . ( $first_nr ? brra_e( brra_c_name( brra_expense_person( $first_nr ) ) . ', ' . brra_c_date( $first_nr['date'], 'j M' ) ) . ( count( $no_receipt ) > 1 ? ' and others' : '' ) : 'Every card payment has proof' ) . '</div></div>';
-		echo '<div class="bc-card"><div class="bc-muted">Spent this season</div><div class="bc-big">' . brra_e( brra_money( $sum( $spent ) ) ) . '</div><div class="bc-muted">since 1 June ' . (int) $season . ' · <a href="' . esc_url( brra_c_url( 'budget', array( 'season' => $season ) ) ) . '">see the budget</a></div></div>';
-		echo '</div>';
-	} else {
-		$mine_open = $by(
-			function ( $e ) {
-				return 'claim' === $e['type'] && in_array( $e['status'], array( 'pending', 'queried', 'approved' ), true );
-			}
-		);
-		$mine_paid = $by(
-			function ( $e ) {
-				return 'claim' === $e['type'] && 'paid' === $e['status'];
-			}
-		);
-		echo '<div class="bc-grid bc-g3"><div class="bc-card"><div class="bc-muted">Your claims waiting</div><div class="bc-big">' . count( $mine_open ) . '</div><div class="bc-muted">' . brra_e( brra_money( $sum( $mine_open ) ) ) . '</div></div><div class="bc-card"><div class="bc-muted">Paid back this season</div><div class="bc-big">' . brra_e( brra_money( $sum( $mine_paid ) ) ) . '</div><div class="bc-muted">' . count( $mine_paid ) . ' ' . ( 1 === count( $mine_paid ) ? 'claim' : 'claims' ) . '</div></div></div>';
-	}
-
-	// Add a payment.
-	$my_card  = isset( $cards[ $uid ] );
-	$can_card = $my_card || ( $all_see && $cards );
-	if ( brra_committee_can_edit() ) {
-		$keep = array( 'f_season' => $season );
-		echo '<div class="bc-grid bc-g2w"><div class="bc-card is-navy bc-addpay">' . brra_c_form( 'expense_add', $keep, 'enctype="multipart/form-data" class="bc-pay"' ); // phpcs:ignore WordPress.Security.EscapeOutput
-		echo '<div class="bc-row bc-sp"><h3>Add a payment</h3>';
+	// Add a payment (opened from the button).
+	if ( $adding ) {
+		$my_card  = isset( $cards[ $uid ] );
+		$can_card = $my_card || ( $all_see && $cards );
+		echo '<div class="bc-card is-navy bc-addpay bc-addpay-solo">' . brra_c_form( 'expense_add', array( 'f_season' => $season, 'f_tab' => $tab ), 'enctype="multipart/form-data" class="bc-pay"' ); // phpcs:ignore WordPress.Security.EscapeOutput
+		echo '<div class="bc-row bc-sp"><h3>' . ( $all_see ? 'Add a payment' : 'Claim expenses' ) . '</h3>';
 		if ( $can_card ) {
 			echo '<div class="bc-seg bc-seg-dark"><label><input type="radio" name="type" value="claim"' . checked( ! $my_card, true, false ) . '><span>I paid, claim it back</span></label><label><input type="radio" name="type" value="card"' . checked( $my_card, true, false ) . '><span>Business debit card</span></label></div>';
 		} else {
@@ -673,94 +701,155 @@ function brra_c_view_expenses() {
 			echo '<option value="' . esc_attr( $k ) . '">' . brra_e( $n ) . '</option>';
 		}
 		echo '<option value="other">Something else</option></select></label>';
-		echo '<label class="bc-stack bc-wide">Receipt (photo or PDF)<input type="file" name="receipt" accept="image/*,.pdf" capture="environment"></label><button class="bc-btn is-gold">Save payment</button></div></form></div>';
-
-		// Side: your claims, cards.
-		echo '<div>';
-		$mine = array_filter(
-			$list,
-			function ( $e ) use ( $uid ) {
-				return 'claim' === $e['type'] && (int) $e['by'] === $uid && 'paid' !== $e['status'];
-			}
-		);
-		echo '<div class="bc-card"><h3>Your claims</h3>';
-		if ( $mine ) {
-			echo '<table class="bc-table bc-tight">';
-			foreach ( $mine as $e ) {
-				$st = brra_expense_status( $e );
-				echo '<tr><td>' . brra_e( $e['what'] ) . '<div class="bc-muted">' . brra_e( brra_c_date( $e['date'], 'j M' ) . ' · ' . brra_money( $e['amount'] ) ) . '</div></td><td>' . brra_pill( $st[0], $st[1] ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput
-			}
-			echo '</table>';
-		} else {
-			echo '<p class="bc-muted">Nothing waiting. Claims you add show here until they\'re paid back.</p>';
-		}
-		echo '</div>';
-		if ( brra_can_edit_budget() ) {
-			echo '<details class="bc-card bc-fold"><summary>Business debit cards (' . count( $cards ) . ')</summary>' . brra_c_form( 'expense_cards', array( 'f_season' => $season ), 'class="bc-form"' ); // phpcs:ignore WordPress.Security.EscapeOutput
-			$i = 0;
-			foreach ( $cards + array( 0 => '' ) as $cu => $last ) {
-				echo '<div class="bc-row bc-card-row">' . brra_people_select( 'cards[' . $i . '][uid]', $cu, 'Add a card holder' ) . '<input type="text" name="cards[' . $i . '][last]" value="' . esc_attr( $last ) . '" placeholder="Last 4" maxlength="4" inputmode="numeric" class="bc-last4">' . ( $cu ? '<label class="bc-check"><input type="checkbox" name="cards[' . $i . '][remove]" value="1"> Remove</label>' : '' ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput
-				++$i;
-			}
-			echo '<button class="bc-btn is-sm">Save cards</button></form><p class="bc-muted">Only card holders can log card payments, for their own card.</p></details>';
-		}
-		echo '</div></div>';
+		echo '<label class="bc-stack bc-wide">Receipt (photo or PDF)<input type="file" name="receipt" accept="image/*,.pdf" capture="environment"></label><div class="bc-row bc-pay-go"><button class="bc-btn is-gold">' . ( $all_see ? 'Save payment' : 'Send claim' ) . '</button><a class="bc-btn is-ghost bc-on-dark" href="' . esc_url( brra_c_url( 'expenses', $keep ) ) . '">Cancel</a></div></div></form></div>';
 	}
 
-	// The list.
-	$rows = array_filter(
-		$list,
-		function ( $e ) use ( $who, $area, $show ) {
-			return ( ! $who || brra_expense_person( $e ) === $who ) && ( ! $area || $e['area'] === $area ) && ( 'all' === $show || brra_expense_outstanding( $e ) );
-		}
-	);
-	echo '<div class="bc-card"><div class="bc-row bc-sp"><h3>' . ( $all_see ? 'Season ' . brra_e( brra_season_label( $season ) ) : 'Your payments, ' . brra_e( brra_season_label( $season ) ) ) . '</h3>';
-	echo '<form method="get" class="bc-row bc-filter-row"><input type="hidden" name="view" value="expenses"><input type="hidden" name="season" value="' . (int) $season . '">';
-	if ( $all_see ) {
-		echo brra_people_select( 'who', $who, 'Everyone' ); // phpcs:ignore WordPress.Security.EscapeOutput
-		echo '<select name="area"><option value="">All areas</option>';
-		foreach ( $areas + array( 'other' => 'Something else' ) as $k => $n ) {
-			echo '<option value="' . esc_attr( $k ) . '"' . selected( $area, $k, false ) . '>' . brra_e( $n ) . '</option>';
-		}
-		echo '</select>';
+	// Tabs.
+	$names = $all_see ? array( 'todo' => 'To approve and pay', 'approved' => 'Approved', 'declined' => 'Declined' ) : array( 'todo' => 'Waiting', 'approved' => 'Approved', 'declined' => 'Declined' );
+	echo '<div class="bc-tabs" role="navigation" aria-label="Expenses">';
+	foreach ( $names as $k => $n ) {
+		echo '<a href="' . esc_url( brra_c_url( 'expenses', array( 'season' => $season, 'tab' => $k ) ) ) . '"' . ( $k === $tab ? ' class="is-on" aria-current="page"' : '' ) . '>' . brra_e( $n ) . ' <span class="bc-tab-n">' . (int) $tabs_n[ $k ] . '</span></a>';
 	}
-	echo '<select name="show"><option value="open">Anything outstanding</option><option value="all"' . selected( $show, 'all', false ) . '>Everything</option></select><button class="bc-btn is-sm is-ghost">Show</button></form></div>';
-	if ( ! $rows ) {
-		echo '<p class="bc-empty">' . ( 'open' === $show ? 'Nothing outstanding. Everything this season is approved, paid back or ticked off.' : 'No payments logged this season yet. Add the first one above.' ) . '</p></div>';
-		return;
-	}
-	$filters = array( 'f_season' => $season, 'f_who' => $who ? $who : '', 'f_area' => $area, 'f_show' => $show );
-	echo '<table class="bc-table bc-exp"><thead><tr><th>Date</th><th>What</th><th>Who</th><th>Type</th><th class="bc-num-cell">Amount</th><th>Receipt</th><th>Status</th></tr></thead><tbody>';
-	foreach ( $rows as $id => $e ) {
+	echo '</div>';
+
+	$filters = array( 'f_season' => $season, 'f_tab' => $tab, 'f_who' => $who ? $who : '', 'f_area' => $area );
+	$sum     = function ( $rows ) {
+		return array_sum( wp_list_pluck( $rows, 'amount' ) );
+	};
+	$pick    = function ( $test ) use ( $list ) {
+		return array_filter( $list, $test );
+	};
+	$row     = function ( $id, $e, $mode ) use ( $uid, $all_see, $approve, $areas, $cards, $filters ) {
 		$st     = brra_expense_status( $e );
 		$person = brra_expense_person( $e );
 		$mine   = $person === $uid && ! current_user_can( 'manage_options' );
 		$args   = array_merge( array( 'eid' => $id ), array_filter( $filters ) );
+		$first  = strtok( brra_c_name( $person ), ' ' );
 		$btns   = '';
-		if ( $approve && 'claim' === $e['type'] && in_array( $e['status'], array( 'pending', 'queried' ), true ) && ! $mine ) {
-			$btns .= '<a class="bc-btn is-sm" href="' . esc_url( brra_c_action_url( 'expense_set', array_merge( $args, array( 'set' => 'approve' ) ) ) ) . '">Approve</a>';
-			$btns .= '<details class="bc-query"><summary class="bc-btn is-sm is-ghost">Query</summary>' . brra_c_form( 'expense_set', array_merge( $args, array( 'set' => 'query' ) ), 'class="bc-form"' ) . '<textarea name="note" rows="2" placeholder="What\'s the question?" required>' . esc_textarea( $e['note'] ) . '</textarea><button class="bc-btn is-sm">Send to ' . brra_e( strtok( brra_c_name( $person ), ' ' ) ) . '</button></form></details>';
+		$info   = '';
+		if ( 'claim' === $e['type'] && in_array( $e['status'], array( 'pending', 'queried' ), true ) ) {
+			if ( $approve && ! $mine ) {
+				$btns .= '<a class="bc-btn is-sm" href="' . esc_url( brra_c_action_url( 'expense_set', array_merge( $args, array( 'set' => 'approve' ) ) ) ) . '">Approve</a>';
+				$btns .= '<details class="bc-query"><summary class="bc-btn is-sm is-ghost">Decline</summary>' . brra_c_form( 'expense_set', array_merge( $args, array( 'set' => 'decline' ) ), 'class="bc-form"' ) . '<label class="bc-stack">Reason (' . brra_e( $first ) . ' will see this)<textarea name="note" rows="2" required></textarea></label><button class="bc-btn is-sm">Decline claim</button></form></details>';
+				$btns .= '<details class="bc-query"><summary class="bc-link">Ask a question</summary>' . brra_c_form( 'expense_set', array_merge( $args, array( 'set' => 'query' ) ), 'class="bc-form"' ) . '<textarea name="note" rows="2" placeholder="What\'s the question?" required>' . esc_textarea( 'queried' === $e['status'] ? $e['note'] : '' ) . '</textarea><button class="bc-btn is-sm">Send to ' . brra_e( $first ) . '</button></form></details>';
+			} else {
+				$info = $mine ? 'The Treasurer or Chairman approves it' : '';
+			}
 		}
-		if ( $approve && 'claim' === $e['type'] && 'approved' === $e['status'] && ! $mine ) {
-			$btns .= '<a class="bc-btn is-sm is-gold" href="' . esc_url( brra_c_action_url( 'expense_set', array_merge( $args, array( 'set' => 'paid' ) ) ) ) . '">Mark paid back</a>';
+		if ( 'claim' === $e['type'] && 'approved' === $e['status'] ) {
+			$info = ! empty( $e['approved_by'] ) ? 'Approved by ' . brra_c_name( $e['approved_by'] ) . ( ! empty( $e['approved_at'] ) ? ', ' . mysql2date( 'j M', $e['approved_at'] ) : '' ) : '';
+			if ( $approve && ! $mine && 'todo' === $mode ) {
+				$btns .= '<a class="bc-btn is-sm is-gold" href="' . esc_url( brra_c_action_url( 'expense_set', array_merge( $args, array( 'set' => 'paid' ) ) ) ) . '">Mark paid back</a>';
+			}
 		}
-		if ( $approve && 'card' === $e['type'] && $e['receipt'] ) {
+		if ( 'card' === $e['type'] && $approve && $e['receipt'] ) {
 			$btns .= '<a class="bc-btn is-sm' . ( 'checked' === $e['status'] ? ' is-ghost' : '' ) . '" href="' . esc_url( brra_c_action_url( 'expense_set', array_merge( $args, array( 'set' => 'check' ) ) ) ) . '">' . ( 'checked' === $e['status'] ? 'Untick' : 'Tick on statement' ) . '</a>';
 		}
-		if ( $approve && 'card' === $e['type'] && ! $e['receipt'] && $person !== $uid ) {
-			$btns .= '<a class="bc-btn is-sm is-ghost" href="' . esc_url( brra_c_action_url( 'expense_remind', $args ) ) . '">' . ( ! empty( $e['reminded'] ) ? 'Remind again' : 'Remind ' . brra_e( strtok( brra_c_name( $person ), ' ' ) ) ) . '</a>';
+		if ( 'card' === $e['type'] && $approve && ! $e['receipt'] && $person !== $uid ) {
+			$btns .= '<a class="bc-btn is-sm is-ghost" href="' . esc_url( brra_c_action_url( 'expense_remind', $args ) ) . '">' . ( ! empty( $e['reminded'] ) ? 'Remind again' : 'Remind ' . brra_e( $first ) ) . '</a>';
+		}
+		if ( 'declined' === $e['status'] ) {
+			$info = ( $e['note'] ? '"' . $e['note'] . '" ' : '' ) . ( ! empty( $e['declined_by'] ) ? '(' . brra_c_name( $e['declined_by'] ) . ( ! empty( $e['declined_at'] ) ? ', ' . mysql2date( 'j M', $e['declined_at'] ) : '' ) . ')' : '' );
 		}
 		$receipt = $e['receipt'] ? '<a class="bc-dl" target="_blank" href="' . esc_url( brra_c_action_url( 'expense_file', array( 'eid' => $id ) ) ) . '">View</a>' : '<strong class="bc-red">Missing</strong>';
-		if ( ! $e['receipt'] && ( $person === $uid || (int) $e['by'] === $uid || $all_see ) ) {
+		if ( ! $e['receipt'] && ( $person === $uid || (int) $e['by'] === $uid || $all_see ) && 'declined' !== $e['status'] ) {
 			$receipt .= '<details class="bc-query"><summary class="bc-btn is-sm is-ghost">Add receipt</summary>' . brra_c_form( 'expense_receipt', $args, 'enctype="multipart/form-data" class="bc-form"' ) . '<input type="file" name="receipt" accept="image/*,.pdf" required><button class="bc-btn is-sm">Upload</button></form></details>';
 		}
 		$own_open = (int) $e['by'] === $uid && in_array( $e['status'], array( 'pending', 'queried', 'unchecked' ), true );
-		$del      = $own_open || $approve ? '<a class="bc-link-danger" href="' . esc_url( brra_c_action_url( 'expense_delete', $args ) ) . '" onclick="return confirm(\'Delete this payment?\')">Delete</a>' : '';
-		echo '<tr class="' . ( 'r' === $st[1] ? 'is-warn' : '' ) . '"><td>' . brra_e( brra_c_date( $e['date'], 'j M' ) ) . '</td><td><strong>' . brra_e( $e['what'] ) . '</strong><div class="bc-muted">' . brra_e( isset( $areas[ $e['area'] ] ) ? $areas[ $e['area'] ] : 'Something else' ) . '</div>' . ( 'queried' === $e['status'] && $e['note'] ? '<div class="bc-note">Query: ' . brra_e( $e['note'] ) . '</div>' : '' ) . '</td><td>' . brra_e( brra_c_name( $person ) ) . '</td><td>' . brra_e( 'card' === $e['type'] ? 'Card' . ( isset( $cards[ $e['card'] ] ) ? ' ••' . $cards[ $e['card'] ] : '' ) : 'Claim' ) . '</td><td class="bc-num-cell">' . brra_e( brra_money( $e['amount'] ) ) . '</td><td>' . $receipt . '</td><td>' . brra_pill( $st[0], $st[1] ) . ( $btns || $del ? '<div class="bc-row bc-btns">' . $btns . $del . '</div>' : '' ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput
+		$del      = $own_open || ( $approve && 'todo' === $mode ) ? '<a class="bc-link-danger" href="' . esc_url( brra_c_action_url( 'expense_delete', $args ) ) . '" onclick="return confirm(\'Delete this payment?\')">Delete</a>' : '';
+		$query    = 'queried' === $e['status'] && $e['note'] ? '<div class="bc-note">Question: ' . brra_e( $e['note'] ) . '</div>' : '';
+		$status   = ( 'todo' === $mode && $all_see && in_array( $e['status'], array( 'pending', 'approved' ), true ) && 'claim' === $e['type'] ) ? '' : brra_pill( $st[0], $st[1] );
+		$out      = '<tr class="' . ( 'r' === $st[1] && 'declined' !== $e['status'] ? 'is-warn' : '' ) . '"><td>' . brra_e( brra_c_date( $e['date'], 'j M' ) ) . '</td><td><strong>' . brra_e( $e['what'] ) . '</strong><div class="bc-muted">' . brra_e( isset( $areas[ $e['area'] ] ) ? $areas[ $e['area'] ] : 'Something else' ) . '</div>' . $query . '</td>';
+		if ( $all_see ) {
+			$out .= '<td>' . brra_e( brra_c_name( $person ) ) . '</td><td>' . brra_e( 'card' === $e['type'] ? 'Card' . ( isset( $cards[ $e['card'] ] ) ? ' ••' . $cards[ $e['card'] ] : '' ) : 'Claim' ) . '</td>';
+		}
+		$out .= '<td class="bc-num-cell"><strong>' . brra_e( brra_money( $e['amount'] ) ) . '</strong></td><td>' . $receipt . '</td><td>' . $status . ( $info ? '<div class="bc-muted bc-exp-info">' . brra_e( $info ) . '</div>' : '' ) . ( $btns || $del ? '<div class="bc-row bc-btns">' . $btns . $del . '</div>' : '' ) . '</td></tr>';
+		return $out;
+	};
+	$table = function ( $rows, $mode, $last = '', $foot = '' ) use ( $all_see, $row ) {
+		$out = '<table class="bc-table bc-exp"><thead><tr><th>Date</th><th>What</th>' . ( $all_see ? '<th>Who</th><th>Type</th>' : '' ) . '<th class="bc-num-cell">Amount</th><th>Receipt</th><th>' . brra_e( $last ) . '</th></tr></thead><tbody>';
+		foreach ( $rows as $id => $e ) {
+			$out .= $row( $id, $e, $mode );
+		}
+		return $out . '</tbody>' . $foot . '</table>';
+	};
+	$section = function ( $title, $sub, $rows, $mode, $empty, $last = '' ) use ( $table ) {
+		echo '<div class="bc-card"><div class="bc-row bc-sp"><h3>' . brra_e( $title ) . '</h3>' . ( $rows ? '<span class="bc-muted">' . brra_e( $sub ) . '</span>' : '' ) . '</div>';
+		echo $rows ? $table( $rows, $mode, $last ) : '<p class="bc-empty">' . brra_e( $empty ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput
+		echo '</div>';
+	};
+	$money_n = function ( $rows, $word ) use ( $sum ) {
+		return count( $rows ) . ' ' . $word . ( 1 === count( $rows ) ? '' : 's' ) . ' · ' . brra_money( $sum( $rows ) );
+	};
+
+	if ( 'todo' === $tab && $all_see ) {
+		$waiting = $pick(
+			function ( $e ) {
+				return 'claim' === $e['type'] && in_array( $e['status'], array( 'pending', 'queried' ), true );
+			}
+		);
+		$to_pay  = $pick(
+			function ( $e ) {
+				return 'claim' === $e['type'] && 'approved' === $e['status'];
+			}
+		);
+		$cardsto = $pick(
+			function ( $e ) {
+				return 'card' === $e['type'] && brra_expense_outstanding( $e );
+			}
+		);
+		$payees  = array_unique( array_map( 'brra_c_name', array_map( 'brra_expense_person', $to_pay ) ) );
+		$section( '1. Waiting for approval', $money_n( $waiting, 'claim' ), $waiting, 'todo', 'No claims waiting.' );
+		$section( '2. Approved, to pay back', $money_n( $to_pay, 'claim' ) . ' to ' . implode( ', ', $payees ), $to_pay, 'todo', 'Nothing to pay back.' );
+		$section( '3. Card payments to check', 'Tick each one off when it shows on the statement', $cardsto, 'todo', 'Every card payment has a receipt and is ticked off.' );
+	} elseif ( 'todo' === $tab ) {
+		$rows = $pick(
+			function ( $e ) use ( $group ) {
+				return 'todo' === $group( $e );
+			}
+		);
+		echo '<div class="bc-card"><h3>Your claims waiting</h3>';
+		echo $rows ? $table( $rows, 'todo', 'Where it\'s up to' ) . '<p class="bc-note">You\'ll get an email when it\'s approved, paid back or declined.</p>' : '<p class="bc-empty">Nothing waiting. Use Claim expenses to claim something back.</p>'; // phpcs:ignore WordPress.Security.EscapeOutput
+		echo '</div>';
+	} else {
+		$rows = $pick(
+			function ( $e ) use ( $group, $tab, $who, $area ) {
+				return $tab === $group( $e ) && ( ! $who || brra_expense_person( $e ) === $who ) && ( ! $area || $e['area'] === $area );
+			}
+		);
+		$head = 'approved' === $tab ? ( $all_see ? 'Approved this season' : 'Your approved claims' ) : ( $all_see ? 'Declined this season' : 'Your declined claims' );
+		echo '<div class="bc-card"><div class="bc-row bc-sp"><h3>' . brra_e( $head ) . '</h3>';
+		if ( $all_see ) {
+			echo '<form method="get" class="bc-row bc-filter-row"><input type="hidden" name="view" value="expenses"><input type="hidden" name="season" value="' . (int) $season . '"><input type="hidden" name="tab" value="' . esc_attr( $tab ) . '">';
+			echo brra_people_select( 'who', $who, 'Everyone' ); // phpcs:ignore WordPress.Security.EscapeOutput
+			echo '<select name="area"><option value="">All areas</option>';
+			foreach ( $areas + array( 'other' => 'Something else' ) as $k => $n ) {
+				echo '<option value="' . esc_attr( $k ) . '"' . selected( $area, $k, false ) . '>' . brra_e( $n ) . '</option>';
+			}
+			echo '</select><button class="bc-btn is-sm is-ghost">Show</button></form>';
+		}
+		echo '</div>';
+		if ( $rows ) {
+			$cols = $all_see ? 4 : 2;
+			$foot = 'approved' === $tab ? '<tfoot><tr><td colspan="' . $cols . '"><strong>Total</strong></td><td class="bc-num-cell"><strong>' . brra_e( brra_money( $sum( $rows ) ) ) . '</strong></td><td colspan="2"></td></tr></tfoot>' : '';
+			echo $table( $rows, $tab, 'approved' === $tab ? 'Done' : 'Why it was declined', $foot ); // phpcs:ignore WordPress.Security.EscapeOutput
+			echo 'declined' === $tab ? '<p class="bc-note">Declined claims don\'t count towards the budget or the I&amp;E download.</p>' : '';
+		} else {
+			echo '<p class="bc-empty">' . ( 'approved' === $tab ? 'Nothing approved yet this season.' : 'Nothing declined this season.' ) . '</p>';
+		}
+		echo '</div>';
 	}
-	echo '</tbody></table>';
+
+	if ( brra_can_edit_budget() ) {
+		echo '<details class="bc-card bc-fold"><summary>Business debit cards (' . count( $cards ) . ')</summary>' . brra_c_form( 'expense_cards', array( 'f_season' => $season ), 'class="bc-form"' ); // phpcs:ignore WordPress.Security.EscapeOutput
+		$i = 0;
+		foreach ( $cards + array( 0 => '' ) as $cu => $last ) {
+			echo '<div class="bc-row bc-card-row">' . brra_people_select( 'cards[' . $i . '][uid]', $cu, 'Add a card holder' ) . '<input type="text" name="cards[' . $i . '][last]" value="' . esc_attr( $last ) . '" placeholder="Last 4" maxlength="4" inputmode="numeric" class="bc-last4">' . ( $cu ? '<label class="bc-check"><input type="checkbox" name="cards[' . $i . '][remove]" value="1"> Remove</label>' : '' ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput
+			++$i;
+		}
+		echo '<button class="bc-btn is-sm">Save cards</button></form><p class="bc-muted">Only card holders can log card payments, for their own card.</p></details>';
+	}
 	echo $all_see ? '<p class="bc-note">Receipts are only visible to the Treasurer, Secretary and Chairman. Other committee members see just their own claims. Nobody can approve their own claim.</p>' : '';
-	echo '</div>';
 }
 
 /**
