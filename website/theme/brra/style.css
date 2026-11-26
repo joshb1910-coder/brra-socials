@@ -393,3 +393,8 @@ a.brra-card-link:hover .brra-card-title { text-decoration: underline; }
 button.pmpro_btn.pmpro_btn-password-toggle { background: none !important; border: 0 !important; box-shadow: none !important; color: var(--wp--preset--color--slate) !important; padding: 4px 0 !important; width: auto !important; height: auto !important; min-height: 0 !important; font-size: 14px !important; font-weight: 600 !important; display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; }
 button.pmpro_btn.pmpro_btn-password-toggle:hover { color: var(--wp--preset--color--ink) !important; background: none !important; }
 button.pmpro_btn.pmpro_btn-password-toggle svg { width: 18px; height: 18px; }
+.brra-pw-line { margin: -6px 0 18px; }
+.brra-pw-toggle { background: none; border: 0; padding: 4px 0; cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; color: var(--wp--preset--color--slate); display: inline-flex; align-items: center; gap: 6px; }
+.brra-pw-toggle:hover { color: var(--wp--preset--color--ink); }
+.brra-pw-toggle svg { width: 18px; height: 18px; }
+.pmpro_form_input-password { font-family: inherit; }

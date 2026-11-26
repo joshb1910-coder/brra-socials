@@ -418,3 +418,43 @@ add_filter(
 		return $data;
 	}
 );
+
+// Signup and password forms: one "Show passwords" line under both boxes instead of a toggle under the first.
+add_action(
+	'wp_footer',
+	function () {
+		if ( ! function_exists( 'pmpro_getAllLevels' ) ) {
+			return;
+		}
+		?>
+		<script>
+		document.querySelectorAll('.pmpro_form_field-password-toggle').forEach(function (old) {
+			var row = old.closest('.pmpro_cols-2') || old.closest('.pmpro_form_field');
+			var scope = old.closest('.pmpro_form_fields') || document;
+			var inputs = [].slice.call((row || scope).querySelectorAll('input[type=password]'));
+			if (!row || !inputs.length) { return; }
+			var icon = old.querySelector('.pmpro_icon');
+			var many = inputs.length > 1;
+			var label = function (on) { return (on ? 'Hide password' : 'Show password') + (many ? 's' : ''); };
+			var wrap = document.createElement('div');
+			wrap.className = 'brra-pw-line';
+			var btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'brra-pw-toggle';
+			btn.setAttribute('aria-pressed', 'false');
+			btn.innerHTML = (icon ? icon.outerHTML : '') + '<span>' + label(false) + '</span>';
+			btn.addEventListener('click', function () {
+				var on = btn.getAttribute('aria-pressed') !== 'true';
+				inputs.forEach(function (i) { i.type = on ? 'text' : 'password'; });
+				btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+				btn.querySelector('span:last-child').textContent = label(on);
+			});
+			wrap.appendChild(btn);
+			old.remove();
+			row.after(wrap);
+		});
+		</script>
+		<?php
+	},
+	99
+);
